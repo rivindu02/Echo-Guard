@@ -1,0 +1,435 @@
+import React, { useState, useEffect, useRef } from 'react';
+import { MapContainer, TileLayer, CircleMarker, Popup, useMap } from 'react-leaflet';
+import L from 'leaflet';
+import 'leaflet/dist/leaflet.css';
+import './NoiseMap.css';
+
+// Fix Leaflet default markers
+delete L.Icon.Default.prototype._getIconUrl;
+L.Icon.Default.mergeOptions({
+  iconRetinaUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon-2x.png',
+  iconUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon.png',
+  shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
+});
+
+// Color scale for noise levels
+const getNoiseColor = (db) => {
+  if (db < 30) return '#4caf50'; // Green - Very quiet
+  if (db < 40) return '#8bc34a'; // Light green - Quiet
+  if (db < 50) return '#cddc39'; // Yellow-green - Moderate
+  if (db < 60) return '#ffeb3b'; // Yellow - Noticeable
+  if (db < 70) return '#ff9800'; // Orange - Loud
+  if (db < 80) return '#ff5722'; // Red-orange - Very loud
+  return '#f44336'; // Red - Extremely loud
+};
+
+// Get noise level description
+const getNoiseDescription = (db) => {
+  if (db < 30) return 'Very Quiet';
+  if (db < 40) return 'Quiet';
+  if (db < 50) return 'Moderate';
+  if (db < 60) return 'Noticeable';
+  if (db < 70) return 'Loud';
+  if (db < 80) return 'Very Loud';
+  return 'Extremely Loud';
+};
+
+// Map style configurations
+const mapStyles = {
+  dark: {
+    url: 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',
+    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>'
+  },
+  light: {
+    url: 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',
+    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>'
+  },
+  satellite: {
+    url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+    attribution: 'Tiles &copy; Esri &mdash; Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, UPR-EGP, and the GIS User Community'
+  }
+};
+
+// Statistics panel component
+const StatisticsPanel = ({ sensorData, connectionStatus }) => {
+  const [stats, setStats] = useState({
+    totalSensors: 0,
+    activeSensors: 0,
+    avgNoise: 0,
+    maxNoise: 0,
+    minNoise: 0,
+    highNoiseAlerts: 0
+  });
+
+  useEffect(() => {
+    if (sensorData.length === 0) {
+      setStats({
+        totalSensors: 0,
+        activeSensors: 0,
+        avgNoise: 0,
+        maxNoise: 0,
+        minNoise: 0,
+        highNoiseAlerts: 0
+      });
+      return;
+    }
+
+    const now = Date.now();
+    const activeSensors = sensorData.filter(sensor => (now - sensor.timestamp) < 60000); // Active in last minute
+    const noiseLevels = sensorData.map(sensor => sensor.db);
+    const avgNoise = noiseLevels.reduce((sum, db) => sum + db, 0) / noiseLevels.length;
+    const maxNoise = Math.max(...noiseLevels);
+    const minNoise = Math.min(...noiseLevels);
+    const highNoiseAlerts = sensorData.filter(sensor => sensor.db > 80).length;
+
+    setStats({
+      totalSensors: sensorData.length,
+      activeSensors: activeSensors.length,
+      avgNoise,
+      maxNoise,
+      minNoise: noiseLevels.length > 0 ? minNoise : 0,
+      highNoiseAlerts
+    });
+  }, [sensorData]);
+
+  return (
+    <div className="statistics-panel glass">
+      <div className="panel-header">
+        <h3>Live Statistics</h3>
+        <div className={`connection-indicator ${connectionStatus}`}>
+          <span className="connection-dot"></span>
+          {connectionStatus.toUpperCase()}
+        </div>
+      </div>
+      
+      <div className="stats-grid">
+        <div className="stat-item">
+          <div className="stat-value">{stats.totalSensors}</div>
+          <div className="stat-label">Total Sensors</div>
+        </div>
+        
+        <div className="stat-item">
+          <div className="stat-value text-success">{stats.activeSensors}</div>
+          <div className="stat-label">Active Now</div>
+        </div>
+        
+        <div className="stat-item">
+          <div className="stat-value text-primary">{stats.avgNoise.toFixed(1)}</div>
+          <div className="stat-label">Avg Noise (dB)</div>
+        </div>
+        
+        <div className="stat-item">
+          <div className={`stat-value ${stats.maxNoise > 80 ? 'text-error' : 'text-warning'}`}>
+            {stats.maxNoise.toFixed(1)}
+          </div>
+          <div className="stat-label">Max Noise (dB)</div>
+        </div>
+        
+        <div className="stat-item">
+          <div className="stat-value text-secondary">{stats.minNoise.toFixed(1)}</div>
+          <div className="stat-label">Min Noise (dB)</div>
+        </div>
+        
+        <div className="stat-item">
+          <div className={`stat-value ${stats.highNoiseAlerts > 0 ? 'text-error animate-pulse' : 'text-secondary'}`}>
+            {stats.highNoiseAlerts}
+          </div>
+          <div className="stat-label">High Noise Alerts</div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// Settings panel component
+const SettingsPanel = ({ settings, onSettingsChange, onMapStyleChange }) => {
+  const [isOpen, setIsOpen] = useState(false);
+
+  return (
+    <div className="settings-panel">
+      <button 
+        className="settings-toggle btn btn-secondary"
+        onClick={() => setIsOpen(!isOpen)}
+      >
+        ⚙️ Settings
+      </button>
+      
+      {isOpen && (
+        <div className="settings-dropdown glass animate-slideInRight">
+          <h4>Map Settings</h4>
+          
+          <div className="setting-group">
+            <label>Map Style:</label>
+            <select 
+              className="input"
+              onChange={(e) => onMapStyleChange(e.target.value)}
+              defaultValue="dark"
+            >
+              <option value="dark">Dark</option>
+              <option value="light">Light</option>
+              <option value="satellite">Satellite</option>
+            </select>
+          </div>
+          
+          <div className="setting-group">
+            <label>
+              <input 
+                type="checkbox"
+                checked={settings.showNotifications}
+                onChange={() => onSettingsChange('showNotifications')}
+              />
+              Show Notifications
+            </label>
+          </div>
+          
+          <div className="setting-group">
+            <label>
+              <input 
+                type="checkbox"
+                checked={settings.autoRefresh}
+                onChange={() => onSettingsChange('autoRefresh')}
+              />
+              Auto Refresh
+            </label>
+          </div>
+          
+          <div className="setting-group">
+            <label>
+              <input 
+                type="checkbox"
+                checked={settings.soundAlerts}
+                onChange={() => onSettingsChange('soundAlerts')}
+              />
+              Sound Alerts
+            </label>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+// Noise level legend component
+const NoiseLegend = () => {
+  const legendItems = [
+    { range: '< 30 dB', color: '#4caf50', desc: 'Very Quiet' },
+    { range: '30-40 dB', color: '#8bc34a', desc: 'Quiet' },
+    { range: '40-50 dB', color: '#cddc39', desc: 'Moderate' },
+    { range: '50-60 dB', color: '#ffeb3b', desc: 'Noticeable' },
+    { range: '60-70 dB', color: '#ff9800', desc: 'Loud' },
+    { range: '70-80 dB', color: '#ff5722', desc: 'Very Loud' },
+    { range: '> 80 dB', color: '#f44336', desc: 'Extremely Loud' }
+  ];
+
+  return (
+    <div className="noise-legend glass">
+      <h4>🔊 Noise Levels</h4>
+      <div className="legend-items">
+        {legendItems.map((item, index) => (
+          <div key={index} className="legend-item">
+            <div 
+              className="legend-color"
+              style={{ backgroundColor: item.color }}
+            ></div>
+            <div className="legend-text">
+              <span className="legend-range">{item.range}</span>
+              <span className="legend-desc">{item.desc}</span>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+};
+
+// Custom marker component
+const AnimatedMarker = ({ sensor, index }) => {
+  const [isActive, setIsActive] = useState(false);
+  const markerRef = useRef(null);
+
+  useEffect(() => {
+    // Animate marker when data updates
+    setIsActive(true);
+    const timer = setTimeout(() => setIsActive(false), 1000);
+    return () => clearTimeout(timer);
+  }, [sensor.db, sensor.timestamp]);
+
+  const color = getNoiseColor(sensor.db);
+  const isRecent = (Date.now() - sensor.timestamp) < 30000; // Recent if within 30 seconds
+  const opacity = isRecent ? 0.8 : 0.4;
+
+  return (
+    <CircleMarker
+      key={sensor.device_id}
+      center={[sensor.lat, sensor.lon]}
+      radius={Math.max(8, Math.min(20, sensor.db / 4))} // Radius based on noise level
+      pathOptions={{
+        fillColor: color,
+        color: isActive ? '#ffffff' : color,
+        weight: isActive ? 3 : 2,
+        fillOpacity: opacity,
+        opacity: 1
+      }}
+      ref={markerRef}
+      className={`noise-marker ${isActive ? 'active' : ''} ${isRecent ? 'recent' : 'old'}`}
+    >
+      <Popup>
+        <div className="marker-popup">
+          <div className="popup-header">
+            <h4>📡 {sensor.device_id}</h4>
+            <span className={`status-badge ${isRecent ? 'online' : 'offline'}`}>
+              {isRecent ? 'ONLINE' : 'OFFLINE'}
+            </span>
+          </div>
+          
+          <div className="popup-content">
+            <div className="noise-reading">
+              <span className="noise-value" style={{ color }}>
+                {sensor.db.toFixed(1)} dB
+              </span>
+              <span className="noise-desc">
+                {getNoiseDescription(sensor.db)}
+              </span>
+            </div>
+            
+            <div className="sensor-details">
+              <div className="detail-row">
+                <span>📍 Location:</span>
+                <span>{sensor.lat.toFixed(4)}, {sensor.lon.toFixed(4)}</span>
+              </div>
+              
+              <div className="detail-row">
+                <span>⏰ Last Update:</span>
+                <span>{new Date(sensor.timestamp).toLocaleTimeString()}</span>
+              </div>
+              
+              <div className="detail-row">
+                <span>📶 Signal:</span>
+                <span className={isRecent ? 'text-success' : 'text-error'}>
+                  {isRecent ? 'Strong' : 'Weak/Offline'}
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </Popup>
+    </CircleMarker>
+  );
+};
+
+// Main NoiseMap component
+const NoiseMap = ({ sensorData, connectionStatus, settings }) => {
+  const [mapStyle, setMapStyle] = useState('dark');
+  const [mapCenter, setMapCenter] = useState([20.5937, 78.9629]); // India center
+  const [mapZoom, setMapZoom] = useState(5);
+  
+  // Update map center based on sensor data
+  useEffect(() => {
+    if (sensorData.length > 0) {
+      // Calculate center point of all sensors
+      const lats = sensorData.map(s => s.lat);
+      const lons = sensorData.map(s => s.lon);
+      const avgLat = lats.reduce((sum, lat) => sum + lat, 0) / lats.length;
+      const avgLon = lons.reduce((sum, lon) => sum + lon, 0) / lons.length;
+      
+      setMapCenter([avgLat, avgLon]);
+      
+      // Adjust zoom based on sensor spread
+      if (sensorData.length > 1) {
+        const latSpread = Math.max(...lats) - Math.min(...lats);
+        const lonSpread = Math.max(...lons) - Math.min(...lons);
+        const maxSpread = Math.max(latSpread, lonSpread);
+        
+        if (maxSpread < 0.01) setMapZoom(15);
+        else if (maxSpread < 0.1) setMapZoom(12);
+        else if (maxSpread < 1) setMapZoom(9);
+        else setMapZoom(7);
+      }
+    }
+  }, [sensorData]);
+
+  const handleSettingsChange = (setting) => {
+    // This would be handled by parent component
+    console.log(`Toggle setting: ${setting}`);
+  };
+
+  const handleMapStyleChange = (style) => {
+    setMapStyle(style);
+  };
+
+  return (
+    <div className="noise-map-container">
+      {/* Statistics Panel */}
+      <StatisticsPanel 
+        sensorData={sensorData} 
+        connectionStatus={connectionStatus}
+      />
+      
+      {/* Settings Panel */}
+      <SettingsPanel 
+        settings={settings}
+        onSettingsChange={handleSettingsChange}
+        onMapStyleChange={handleMapStyleChange}
+      />
+      
+      {/* Noise Legend */}
+      <NoiseLegend />
+      
+      {/* Main Map */}
+      <MapContainer
+        center={mapCenter}
+        zoom={mapZoom}
+        style={{ height: '100%', width: '100%' }}
+        zoomControl={true}
+        attributionControl={true}
+        className="noise-leaflet-map"
+      >
+        <TileLayer
+          attribution={mapStyles[mapStyle].attribution}
+          url={mapStyles[mapStyle].url}
+        />
+        
+        {/* Render sensor markers */}
+        {sensorData.map((sensor, index) => (
+          <AnimatedMarker 
+            key={sensor.device_id} 
+            sensor={sensor} 
+            index={index}
+          />
+        ))}
+      </MapContainer>
+      
+      {/* Connection Status Overlay */}
+      {connectionStatus !== 'connected' && (
+        <div className="connection-overlay">
+          <div className="connection-message glass">
+            <div className="spinner"></div>
+            <p>
+              {connectionStatus === 'connecting' && '🔄 Connecting to sensors...'}
+              {connectionStatus === 'disconnected' && '📡 Disconnected from sensors'}
+              {connectionStatus === 'error' && '❌ Connection error - Check your MQTT broker'}
+            </p>
+          </div>
+        </div>
+      )}
+      
+      {/* No Data Message */}
+      {sensorData.length === 0 && connectionStatus === 'connected' && (
+        <div className="no-data-overlay">
+          <div className="no-data-message glass animate-fadeIn">
+            <h3>🔍 No Sensors Detected</h3>
+            <p>Waiting for sensor data...</p>
+            <p>Make sure your ESP32 sensors are:</p>
+            <ul>
+              <li>✅ Connected to WiFi</li>
+              <li>✅ Publishing to the correct MQTT topic</li>
+              <li>✅ Sending valid JSON data</li>
+            </ul>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+export default NoiseMap;
