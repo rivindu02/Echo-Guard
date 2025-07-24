@@ -350,3 +350,58 @@ export const reconnect = () =>
   mqttService.reconnect();
 
 export default mqttService;
+
+
+// import mqtt from 'precompiled-mqtt';
+
+// const BROKER_URL = 'ws://YOUR_PI_IP:9001';
+
+// class EnhancedMQTTService {
+//   constructor() {
+//     this.client = null;
+//     this.onDataCallback = null;
+//     this.onInterpolatedDataCallback = null;
+//   }
+
+//   connect(onDataCallback, onInterpolatedDataCallback) {
+//     this.onDataCallback = onDataCallback;
+//     this.onInterpolatedDataCallback = onInterpolatedDataCallback;
+    
+//     this.client = mqtt.connect(BROKER_URL);
+    
+//     this.client.on('connect', () => {
+//       console.log('Connected to MQTT broker');
+//       // Subscribe to both raw sensor data and processed interpolated data
+//       this.client.subscribe('noise/+');
+//       this.client.subscribe('noise/processed');
+//     });
+
+//     this.client.on('message', (topic, message) => {
+//       try {
+//         const payload = JSON.parse(message.toString());
+        
+//         if (topic === 'noise/processed') {
+//           // Handle interpolated data
+//           if (this.onInterpolatedDataCallback) {
+//             this.onInterpolatedDataCallback(payload);
+//           }
+//         } else if (topic.startsWith('noise/') && topic !== 'noise/processed') {
+//           // Handle raw sensor data
+//           if (this.onDataCallback) {
+//             this.onDataCallback(payload);
+//           }
+//         }
+//       } catch (err) {
+//         console.error('Error parsing MQTT message:', err);
+//       }
+//     });
+//   }
+
+//   disconnect() {
+//     if (this.client) {
+//       this.client.end();
+//     }
+//   }
+// }
+
+// export default new EnhancedMQTTService();
