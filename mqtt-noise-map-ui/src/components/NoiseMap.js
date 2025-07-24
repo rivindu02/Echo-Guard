@@ -36,13 +36,15 @@ const getNoiseDescription = (db) => {
 
 // Map style configurations
 const mapStyles = {
-  dark: {
-    url: 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',
-    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>'
-  },
-  light: {
-    url: 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',
-    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>'
+  normal: {
+    dark: {
+      url: 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',
+      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>'
+    },
+    light: {
+      url: 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',
+      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>'
+    }
   },
   satellite: {
     url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
@@ -50,99 +52,8 @@ const mapStyles = {
   }
 };
 
-// Statistics panel component
-const StatisticsPanel = ({ sensorData, connectionStatus }) => {
-  const [stats, setStats] = useState({
-    totalSensors: 0,
-    activeSensors: 0,
-    avgNoise: 0,
-    maxNoise: 0,
-    minNoise: 0,
-    highNoiseAlerts: 0
-  });
-
-  useEffect(() => {
-    if (sensorData.length === 0) {
-      setStats({
-        totalSensors: 0,
-        activeSensors: 0,
-        avgNoise: 0,
-        maxNoise: 0,
-        minNoise: 0,
-        highNoiseAlerts: 0
-      });
-      return;
-    }
-
-    const now = Date.now();
-    const activeSensors = sensorData.filter(sensor => (now - sensor.timestamp) < 60000); // Active in last minute
-    const noiseLevels = sensorData.map(sensor => sensor.db);
-    const avgNoise = noiseLevels.reduce((sum, db) => sum + db, 0) / noiseLevels.length;
-    const maxNoise = Math.max(...noiseLevels);
-    const minNoise = Math.min(...noiseLevels);
-    const highNoiseAlerts = sensorData.filter(sensor => sensor.db > 80).length;
-
-    setStats({
-      totalSensors: sensorData.length,
-      activeSensors: activeSensors.length,
-      avgNoise,
-      maxNoise,
-      minNoise: noiseLevels.length > 0 ? minNoise : 0,
-      highNoiseAlerts
-    });
-  }, [sensorData]);
-
-  return (
-    <div className="statistics-panel glass">
-      <div className="panel-header">
-        <h3>Live Statistics</h3>
-        <div className={`connection-indicator ${connectionStatus}`}>
-          <span className="connection-dot"></span>
-          {connectionStatus.toUpperCase()}
-        </div>
-      </div>
-      
-      <div className="stats-grid">
-        <div className="stat-item">
-          <div className="stat-value">{stats.totalSensors}</div>
-          <div className="stat-label">Total Sensors</div>
-        </div>
-        
-        <div className="stat-item">
-          <div className="stat-value text-success">{stats.activeSensors}</div>
-          <div className="stat-label">Active Now</div>
-        </div>
-        
-        <div className="stat-item">
-          <div className="stat-value text-primary">{stats.avgNoise.toFixed(1)}</div>
-          <div className="stat-label">Avg Noise (dB)</div>
-        </div>
-        
-        <div className="stat-item">
-          <div className={`stat-value ${stats.maxNoise > 80 ? 'text-error' : 'text-warning'}`}>
-            {stats.maxNoise.toFixed(1)}
-          </div>
-          <div className="stat-label">Max Noise (dB)</div>
-        </div>
-        
-        <div className="stat-item">
-          <div className="stat-value text-secondary">{stats.minNoise.toFixed(1)}</div>
-          <div className="stat-label">Min Noise (dB)</div>
-        </div>
-        
-        <div className="stat-item">
-          <div className={`stat-value ${stats.highNoiseAlerts > 0 ? 'text-error animate-pulse' : 'text-secondary'}`}>
-            {stats.highNoiseAlerts}
-          </div>
-          <div className="stat-label">High Noise Alerts</div>
-        </div>
-      </div>
-    </div>
-  );
-};
-
 // Settings panel component
-const SettingsPanel = ({ settings, onSettingsChange, onMapStyleChange }) => {
+const SettingsPanel = ({ settings, onMapStyleChange }) => {
   const [isOpen, setIsOpen] = useState(false);
 
   return (
@@ -151,57 +62,23 @@ const SettingsPanel = ({ settings, onSettingsChange, onMapStyleChange }) => {
         className="settings-toggle btn btn-secondary"
         onClick={() => setIsOpen(!isOpen)}
       >
-        ⚙️ Settings
+        ⚙️ Map Settings
       </button>
       
       {isOpen && (
         <div className="settings-dropdown glass animate-slideInRight">
-          <h4>Map Settings</h4>
+          <h4>Map Style</h4>
           
           <div className="setting-group">
-            <label>Map Style:</label>
+            <label>View:</label>
             <select 
               className="input"
               onChange={(e) => onMapStyleChange(e.target.value)}
-              defaultValue="dark"
+              defaultValue="normal"
             >
-              <option value="dark">Dark</option>
-              <option value="light">Light</option>
-              <option value="satellite">Satellite</option>
+              <option value="normal">Normal View</option>
+              <option value="satellite">Satellite View</option>
             </select>
-          </div>
-          
-          <div className="setting-group">
-            <label>
-              <input 
-                type="checkbox"
-                checked={settings.showNotifications}
-                onChange={() => onSettingsChange('showNotifications')}
-              />
-              Show Notifications
-            </label>
-          </div>
-          
-          <div className="setting-group">
-            <label>
-              <input 
-                type="checkbox"
-                checked={settings.autoRefresh}
-                onChange={() => onSettingsChange('autoRefresh')}
-              />
-              Auto Refresh
-            </label>
-          </div>
-          
-          <div className="setting-group">
-            <label>
-              <input 
-                type="checkbox"
-                checked={settings.soundAlerts}
-                onChange={() => onSettingsChange('soundAlerts')}
-              />
-              Sound Alerts
-            </label>
           </div>
         </div>
       )}
@@ -319,9 +196,19 @@ const AnimatedMarker = ({ sensor, index }) => {
 
 // Main NoiseMap component
 const NoiseMap = ({ sensorData, connectionStatus, settings }) => {
-  const [mapStyle, setMapStyle] = useState('dark');
+  const [mapStyle, setMapStyle] = useState('normal');
   const [mapCenter, setMapCenter] = useState([20.5937, 78.9629]); // India center
   const [mapZoom, setMapZoom] = useState(5);
+  
+  // Get current tile layer configuration based on style and dark mode
+  const getCurrentTileLayer = () => {
+    if (mapStyle === 'satellite') {
+      return mapStyles.satellite;
+    } else {
+      // For normal view, use dark or light based on settings.darkMode
+      return settings.darkMode ? mapStyles.normal.dark : mapStyles.normal.light;
+    }
+  };
   
   // Update map center based on sensor data
   useEffect(() => {
@@ -348,27 +235,15 @@ const NoiseMap = ({ sensorData, connectionStatus, settings }) => {
     }
   }, [sensorData]);
 
-  const handleSettingsChange = (setting) => {
-    // This would be handled by parent component
-    console.log(`Toggle setting: ${setting}`);
-  };
-
   const handleMapStyleChange = (style) => {
     setMapStyle(style);
   };
 
   return (
-    <div className="noise-map-container">
-      {/* Statistics Panel */}
-      <StatisticsPanel 
-        sensorData={sensorData} 
-        connectionStatus={connectionStatus}
-      />
-      
+    <div className="noise-map-container">      
       {/* Settings Panel */}
       <SettingsPanel 
         settings={settings}
-        onSettingsChange={handleSettingsChange}
         onMapStyleChange={handleMapStyleChange}
       />
       
@@ -385,8 +260,8 @@ const NoiseMap = ({ sensorData, connectionStatus, settings }) => {
         className="noise-leaflet-map"
       >
         <TileLayer
-          attribution={mapStyles[mapStyle].attribution}
-          url={mapStyles[mapStyle].url}
+          attribution={getCurrentTileLayer().attribution}
+          url={getCurrentTileLayer().url}
         />
         
         {/* Render sensor markers */}

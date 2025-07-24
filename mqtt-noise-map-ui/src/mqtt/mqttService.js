@@ -37,9 +37,6 @@ class MQTTService {
 
         // Generate unique client ID
         const clientId = CONFIG.CLIENT_ID_PREFIX + Math.random().toString(16).substr(2, 8);
-        
-        console.log(`🔌 Connecting to MQTT broker: ${CONFIG.BROKER_URL}`);
-        console.log(`📡 Client ID: ${clientId}`);
 
         const options = {
           clientId: clientId,
@@ -64,7 +61,6 @@ class MQTTService {
 
         // Connection successful
         this.client.on('connect', () => {
-          console.log('✅ MQTT Connected successfully');
           this.isConnected = true;
           this.connectionStatus = 'connected';
           this.reconnectAttempts = 0;
@@ -86,7 +82,6 @@ class MQTTService {
         this.client.on('message', (topic, message) => {
           try {
             const messageStr = message.toString();
-            console.log(`📨 Received message on ${topic}:`, messageStr);
             
             // Parse JSON payload
             const payload = JSON.parse(messageStr);
@@ -96,8 +91,6 @@ class MQTTService {
               if (this.messageHandler) {
                 this.messageHandler(payload);
               }
-            } else {
-              console.warn('⚠️ Invalid payload structure:', payload);
             }
           } catch (error) {
             console.error('❌ Error parsing MQTT message:', error);
@@ -121,7 +114,6 @@ class MQTTService {
 
         // Handle disconnection
         this.client.on('close', () => {
-          console.log('🔌 MQTT Connection closed');
           this.isConnected = false;
           this.connectionStatus = 'disconnected';
           
@@ -133,7 +125,6 @@ class MQTTService {
         // Handle reconnection attempts
         this.client.on('reconnect', () => {
           this.reconnectAttempts++;
-          console.log(`🔄 Attempting to reconnect (${this.reconnectAttempts}/${CONFIG.MAX_RECONNECT_ATTEMPTS})...`);
           this.connectionStatus = 'connecting';
           
           if (this.statusHandler) {
@@ -142,7 +133,6 @@ class MQTTService {
 
           // Stop reconnecting after max attempts
           if (this.reconnectAttempts >= CONFIG.MAX_RECONNECT_ATTEMPTS) {
-            console.error('❌ Max reconnection attempts reached');
             this.client.end(true);
             this.connectionStatus = 'error';
             
@@ -154,7 +144,6 @@ class MQTTService {
 
         // Handle offline status
         this.client.on('offline', () => {
-          console.log('📴 MQTT Client offline');
           this.isConnected = false;
           this.connectionStatus = 'disconnected';
           
@@ -186,7 +175,6 @@ class MQTTService {
         if (error) {
           console.error(`❌ Failed to subscribe to ${topic}:`, error);
         } else {
-          console.log(`📡 Subscribed to topic: ${topic}`);
           this.subscriptions.add(topic);
         }
       });
@@ -258,7 +246,6 @@ class MQTTService {
 
     const topic = `${CONFIG.TOPIC_PREFIX}/${testData.device_id}/data`;
     this.client.publish(topic, JSON.stringify(testData), { qos: CONFIG.QOS });
-    console.log(`📤 Published test message to ${topic}:`, testData);
   }
 
   /**
@@ -266,8 +253,6 @@ class MQTTService {
    */
   disconnect() {
     if (this.client) {
-      console.log('🔌 Disconnecting from MQTT broker...');
-      
       // Publish offline status
       this.publishClientStatus('offline');
       
@@ -277,8 +262,6 @@ class MQTTService {
       this.isConnected = false;
       this.connectionStatus = 'disconnected';
       this.subscriptions.clear();
-      
-      console.log('✅ MQTT Disconnected');
     }
   }
 
@@ -318,7 +301,6 @@ class MQTTService {
    */
   reconnect() {
     if (this.client) {
-      console.log('🔄 Manual reconnection triggered');
       this.client.reconnect();
     }
   }

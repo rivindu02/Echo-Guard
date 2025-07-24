@@ -1,0 +1,27 @@
+{
+  "name": "noise-mapping",
+  "version": "1.0.0",
+  "description": "SPARK project",
+  "main": "mqtt-broker.js",
+  "directories": {
+    "doc": "docs"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/rivindu02/Noise-mapping.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/rivindu02/Noise-mapping/issues"
+  },
+  "homepage": "https://github.com/rivindu02/Noise-mapping#readme",
+  "dependencies": {
+    "aedes": "^0.51.3",
+    "websocket-stream": "^5.5.2"
+  }
+}
