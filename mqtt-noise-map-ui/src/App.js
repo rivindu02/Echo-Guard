@@ -1,6 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import NoiseMap from './components/NoiseMap';
-import { connect, disconnect, getConnectionStatus } from './mqtt/mqttService';
+import webSocketMQTTService from './mqtt/webSocketMqttService';
+import logoImage from './components/Smart Noise Monitoring System.png';
 import './App.css';
 
 function App() {
@@ -22,57 +23,81 @@ function App() {
   });
   const [notifications, setNotifications] = useState([]);
 
+  // Show notification function
+  const showNotification = useCallback((message, type = 'info') => {
+    const notification = {
+      id: Date.now(),
+      message,
+      type,
+      timestamp: new Date().toLocaleTimeString()
+    };
+    
+    setNotifications(prev => [notification, ...prev].slice(0, 5)); // Keep only last 5
+    
+    // Auto remove after 5 seconds
+    setTimeout(() => {
+      setNotifications(prev => prev.filter(n => n.id !== notification.id));
+    }, 5000);
+  }, []);
+
   // MQTT message handler
-  const handleMessage = (payload) => {
+  const handleMessage = useCallback((payload, messageType) => {
     try {
-      // Validate payload structure
-      if (!payload.device_id || payload.db === undefined || !payload.lat || !payload.lon) {
-        console.warn('Invalid sensor payload:', payload);
-        return;
-      }
-
-      const newReading = {
-        ...payload,
-        timestamp: payload.timestamp || Date.now(),
-        db: parseFloat(payload.db),
-        lat: parseFloat(payload.lat),
-        lon: parseFloat(payload.lon),
-      };
-
-      // Update sensor data
-      setSensorData(prevData => {
-        const existingIndex = prevData.findIndex(sensor => sensor.device_id === newReading.device_id);
-        let newData;
-        
-        if (existingIndex >= 0) {
-          // Update existing sensor
-          newData = [...prevData];
-          newData[existingIndex] = { ...newData[existingIndex], ...newReading };
-        } else {
-          // Add new sensor
-          newData = [...prevData, newReading];
-          if (settings.showNotifications) {
-            showNotification(`New sensor connected: ${newReading.device_id}`, 'info');
-          }
+      // Handle different message types from WebSocket service
+      if (messageType === 'sensor') {
+        // Validate payload structure
+        if (!payload.device_id || payload.db === undefined || !payload.lat || !payload.lon) {
+          console.warn('Invalid sensor payload:', payload);
+          return;
         }
 
-        // Update statistics
-        updateStats(newData);
-        
-        return newData;
-      });
+        const newReading = {
+          ...payload,
+          timestamp: payload.timestamp || Date.now(),
+          db: parseFloat(payload.db),
+          lat: parseFloat(payload.lat),
+          lon: parseFloat(payload.lon),
+        };
 
-      // Check for noise level alerts
-      if (newReading.db > 85 && settings.showNotifications) {
-        showNotification(`High noise level detected: ${newReading.db} dB at ${newReading.device_id}`, 'warning');
-        setNotificationCount(prev => prev + 1);
+        // Update sensor data
+        setSensorData(prevData => {
+          const existingIndex = prevData.findIndex(sensor => sensor.device_id === newReading.device_id);
+          let newData;
+          
+          if (existingIndex >= 0) {
+            // Update existing sensor
+            newData = [...prevData];
+            newData[existingIndex] = { ...newData[existingIndex], ...newReading };
+          } else {
+            // Add new sensor
+            newData = [...prevData, newReading];
+            if (settings.showNotifications) {
+              showNotification(`New sensor connected: ${newReading.device_id}`, 'info');
+            }
+          }
+
+          // Update statistics
+          updateStats(newData);
+          
+          return newData;
+        });
+
+        // Check for noise level alerts
+        if (newReading.db > 85 && settings.showNotifications) {
+          showNotification(`High noise level detected: ${newReading.db} dB at ${newReading.device_id}`, 'warning');
+          setNotificationCount(prev => prev + 1);
+        }
+      } else if (messageType === 'interpolated') {
+        // Handle interpolated data (noise map overlay)
+        console.log('📈 Received interpolated data:', payload);
+        // This will be handled by the NoiseMap component
       }
 
     } catch (error) {
-      console.error('Error handling MQTT message:', error);
+      console.error('Error handling WebSocket message:', error);
       showNotification('Error processing sensor data', 'error');
     }
-  };
+  }, [settings.showNotifications, showNotification]);
 
   // Update app statistics
   const updateStats = (data) => {
@@ -99,36 +124,19 @@ function App() {
     });
   };
 
-  // Show notification function
-  const showNotification = (message, type = 'info') => {
-    const notification = {
-      id: Date.now(),
-      message,
-      type,
-      timestamp: new Date().toLocaleTimeString()
-    };
-    
-    setNotifications(prev => [notification, ...prev].slice(0, 5)); // Keep only last 5
-    
-    // Auto remove after 5 seconds
-    setTimeout(() => {
-      setNotifications(prev => prev.filter(n => n.id !== notification.id));
-    }, 5000);
-  };
-
-  // Initialize MQTT connection
+  // Initialize WebSocket connection
   useEffect(() => {
     const initConnection = async () => {
       try {
         setConnectionStatus('connecting');
-        showNotification('Connecting to MQTT broker...', 'info');
+        showNotification('Connecting to WebSocket server...', 'info');
         
-        await connect(handleMessage, (status) => {
+        await webSocketMQTTService.connect(handleMessage, (status) => {
           setConnectionStatus(status);
           if (status === 'connected') {
-            showNotification('Connected to MQTT broker!', 'success');
+            showNotification('Connected to WebSocket server!', 'success');
           } else if (status === 'error') {
-            showNotification('Failed to connect to MQTT broker', 'error');
+            showNotification('Failed to connect to WebSocket server', 'error');
           }
         });
       } catch (error) {
@@ -142,16 +150,16 @@ function App() {
 
     // Cleanup on unmount
     return () => {
-      disconnect();
+      webSocketMQTTService.disconnect();
     };
-  }, []);
+  }, [handleMessage, showNotification]);
 
   // Auto-refresh connection status
   useEffect(() => {
     if (!settings.autoRefresh) return;
 
     const interval = setInterval(() => {
-      const status = getConnectionStatus();
+      const status = webSocketMQTTService.getStatus();
       setConnectionStatus(status);
     }, 5000);
 
@@ -175,62 +183,48 @@ function App() {
     }
   };
 
-  const getConnectionIcon = () => {
-    switch (connectionStatus) {
-      case 'connected': return '📶';
-      case 'connecting': return '🔄';
-      case 'disconnected': return '📴';
-      case 'error': return '❌';
-      default: return '📴';
-    }
-  };
-
   return (
     <div className="app-container">
       {/* Top Navigation Bar */}
-      <div className="top-navbar glass">
-        <div className="navbar-left">
-          <h1 className="app-title">Noise Map Dashboard</h1>
+      <div className="top-navbar-modern">
+        <div className="navbar-brand">
+          <div className="app-logo">
+            <div className="logo-icon">
+              <img src={logoImage} alt="Smart Noise Monitoring System" className="logo-image" />
+            </div>
+            <div className="brand-text">
+              <h1 className="app-title">Echo Guard</h1>
+              <span className="app-subtitle">Smart Noise Monitoring System</span>
+            </div>
+          </div>
         </div>
         
-        <div className="navbar-center">
-          <div className="stats-chips">
-            <div className="chip chip-primary">
-              {appStats.activeSensors}/{appStats.totalSensors} Active
-            </div>
-            <div className="chip">
-              Avg: {appStats.avgNoiseLevel.toFixed(1)} dB
-            </div>
-            {appStats.maxNoiseLevel > 0 && (
-              <div className={`chip ${appStats.maxNoiseLevel > 85 ? 'chip-error' : ''}`}>
-                Max: {appStats.maxNoiseLevel.toFixed(1)} dB
-              </div>
-            )}
-          </div>
-        </div>
-
-        <div className="navbar-right">
+        <div className="navbar-actions">
           {/* Connection Status */}
-          <div className={`connection-status chip chip-${getConnectionStatusClass()}`}>
-            <span className="connection-icon">{getConnectionIcon()}</span>
-            {connectionStatus.toUpperCase()}
+          <div className={`connection-indicator status-${getConnectionStatusClass()}`}>
+            <div className="connection-pulse"></div>
+            <span className="connection-text">{connectionStatus}</span>
           </div>
 
-          {/* Notifications */}
-          <button 
-            className="notification-btn btn btn-secondary"
-            onClick={() => setNotificationCount(0)}
-          >
-            🔔 {notificationCount > 0 && <span className="notification-badge">{notificationCount}</span>}
-          </button>
+          {/* Action Buttons */}
+          <div className="action-buttons">
+            <button 
+              className="action-btn notification-btn"
+              onClick={() => setNotificationCount(0)}
+              title="Notifications"
+            >
+              <span className="btn-icon">🔔</span>
+              {notificationCount > 0 && <span className="notification-dot">{notificationCount}</span>}
+            </button>
 
-          {/* Settings */}
-          <button 
-            className="settings-btn btn btn-secondary"
-            onClick={() => setSettingsOpen(!settingsOpen)}
-          >
-            ⚙️
-          </button>
+            <button 
+              className="action-btn settings-btn"
+              onClick={() => setSettingsOpen(!settingsOpen)}
+              title="Settings"
+            >
+              <span className="btn-icon">⚙️</span>
+            </button>
+          </div>
         </div>
       </div>
 
