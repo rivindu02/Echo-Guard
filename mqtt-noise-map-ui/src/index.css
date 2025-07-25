@@ -261,6 +261,11 @@
   --color-error-rgb: var(--color-red-400-rgb);
   --color-warning-rgb: var(--color-orange-400-rgb);
   --color-info-rgb: var(--color-gray-300-rgb);
+  --color-secondary-rgb: var(--color-gray-400-rgb);
+  --color-border-rgb: var(--color-gray-400-rgb);
+  --color-surface-rgb: var(--color-charcoal-800-rgb);
+  --color-background-rgb: var(--color-charcoal-700-rgb);
+  --color-card-border-rgb: var(--color-gray-400-rgb);
 }
 
 [data-color-scheme="light"] {
@@ -295,6 +300,11 @@
   --color-error-rgb: var(--color-red-500-rgb);
   --color-warning-rgb: var(--color-orange-500-rgb);
   --color-info-rgb: var(--color-slate-500-rgb);
+  --color-secondary-rgb: var(--color-brown-600-rgb);
+  --color-border-rgb: var(--color-brown-600-rgb);
+  --color-surface-rgb: var(--color-cream-50-rgb);
+  --color-background-rgb: var(--color-cream-25-rgb);
+  --color-card-border-rgb: var(--color-brown-600-rgb);
 }
 
 /* Base styles */
@@ -740,8 +750,6 @@ select.form-control {
 /* END PERPLEXITY DESIGN SYSTEM */
 
 /* Global Styles */
-```css
-/* Global Styles */
 * {
   margin: 0;
   padding: 0;
@@ -792,16 +800,16 @@ body {
 
 /* Glassmorphism Effects */
 .glass {
-  background: rgba(var(--color-slate-900-rgb), 0.8);
-  backdrop-filter: blur(20px);
-  border: 1px solid var(--color-card-border);
+  background: rgba(var(--color-slate-900-rgb), 0.15);
+  backdrop-filter: blur(25px);
+  border: 1px solid rgba(var(--color-card-border-rgb), 0.2);
   border-radius: var(--radius-lg);
 }
 
 .glass-light {
-  background: var(--color-secondary);
-  backdrop-filter: blur(15px);
-  border: 1px solid var(--color-card-border);
+  background: rgba(var(--color-secondary-rgb, 107, 114, 128), 0.1);
+  backdrop-filter: blur(20px);
+  border: 1px solid rgba(var(--color-card-border-rgb), 0.15);
   border-radius: var(--radius-base);
 }
 

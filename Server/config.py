@@ -1,5 +1,5 @@
 """
-Configuration settings for the noise mapping backend
+Configuration settings for the Raspberry Pi noise mapping system
 """
 
 import os
@@ -10,13 +10,18 @@ class Config:
     MQTT_BROKER_PORT = int(os.getenv('MQTT_BROKER_PORT', '1883'))
     MQTT_KEEPALIVE = int(os.getenv('MQTT_KEEPALIVE', '60'))
     
+    # WebSocket Settings
+    WEBSOCKET_HOST = os.getenv('WEBSOCKET_HOST', 'localhost')
+    WEBSOCKET_PORT = int(os.getenv('WEBSOCKET_PORT', '9001'))
+    
     # Topics
     SENSOR_TOPIC_PREFIX = os.getenv('SENSOR_TOPIC_PREFIX', 'noise')
     PROCESSED_TOPIC = os.getenv('PROCESSED_TOPIC', 'noise/processed')
+    PROCESS_REQUEST_TOPIC = os.getenv('PROCESS_REQUEST_TOPIC', 'noise/process_request')
     
     # Processing Settings
-    GRID_SIZE = (50, 50)
-    UPDATE_INTERVAL = int(os.getenv('UPDATE_INTERVAL', '5'))  # seconds
+    GRID_SIZE = (60, 60)  # Higher resolution for better visualization
+    UPDATE_INTERVAL = int(os.getenv('UPDATE_INTERVAL', '2'))  # seconds
     MAX_SENSOR_AGE = int(os.getenv('MAX_SENSOR_AGE', '300'))  # seconds
     
     # Interpolation Settings
@@ -25,4 +30,8 @@ class Config:
     
     # Logging
     LOG_LEVEL = os.getenv('LOG_LEVEL', 'INFO')
-    LOG_FILE = os.getenv('LOG_FILE', '/var/log/noise_processor.log')
+    LOG_FILE = os.getenv('LOG_FILE', 'noise_system.log')
+    
+    # System Settings
+    ENABLE_FAKE_SENSORS = os.getenv('ENABLE_FAKE_SENSORS', 'true').lower() == 'true'
+    AUTO_RESTART = os.getenv('AUTO_RESTART', 'true').lower() == 'true'

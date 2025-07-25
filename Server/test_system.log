@@ -1,0 +1,10 @@
+2025-07-26 03:20:19,386 - INFO - 🚀 Starting full system test...
+2025-07-26 03:20:19,388 - INFO - 🧪 Testing system components...
+2025-07-26 03:20:19,389 - INFO - ✅ All required files present
+2025-07-26 03:20:21,873 - INFO - ✅ Python dependencies installed
+2025-07-26 03:20:21,884 - WARNING - ⚠️ Mosquitto not found - install with: sudo apt install mosquitto
+2025-07-26 03:20:21,886 - INFO - 🧪 Testing WebSocket connection to ws://localhost:9001
+2025-07-26 03:20:26,140 - ERROR - ❌ Connection refused - is the server running?
+2025-07-26 03:20:26,141 - ERROR - ❌ WebSocket connection test failed
+2025-07-26 03:20:26,141 - INFO - 💡 Make sure to start the system first:
+2025-07-26 03:20:26,142 - INFO -    python start_noise_system.py

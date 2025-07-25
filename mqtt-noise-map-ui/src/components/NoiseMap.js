@@ -1,6 +1,7 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { MapContainer, TileLayer, CircleMarker, Popup, useMap } from 'react-leaflet';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import { MapContainer, TileLayer, CircleMarker, Popup } from 'react-leaflet';
 import L from 'leaflet';
+import NoiseMapOverlay from './NoiseMapOverlay';
 import 'leaflet/dist/leaflet.css';
 import './NoiseMap.css';
 
@@ -53,7 +54,7 @@ const mapStyles = {
 };
 
 // Settings panel component
-const SettingsPanel = ({ settings, onMapStyleChange }) => {
+const SettingsPanel = React.memo(({ settings, onMapStyleChange, showOverlay, onToggleOverlay, overlayOpacity, onOpacityChange }) => {
   const [isOpen, setIsOpen] = useState(false);
 
   return (
@@ -80,47 +81,129 @@ const SettingsPanel = ({ settings, onMapStyleChange }) => {
               <option value="satellite">Satellite View</option>
             </select>
           </div>
+
+          <h4>Noise Distribution</h4>
+          
+          <div className="setting-group">
+            <label className="checkbox-label">
+              <input
+                type="checkbox"
+                checked={showOverlay}
+                onChange={(e) => onToggleOverlay(e.target.checked)}
+              />
+              <span>Show Noise Map</span>
+            </label>
+          </div>
+
+          {showOverlay && (
+            <div className="setting-group">
+              <label>Opacity: {Math.round(overlayOpacity * 100)}%</label>
+              <input
+                type="range"
+                min="0.1"
+                max="1"
+                step="0.1"
+                value={overlayOpacity}
+                onChange={(e) => onOpacityChange(parseFloat(e.target.value))}
+                className="slider"
+              />
+            </div>
+          )}
         </div>
       )}
     </div>
   );
-};
+});
 
-// Noise level legend component
-const NoiseLegend = () => {
-  const legendItems = [
-    { range: '< 30 dB', color: '#4caf50', desc: 'Very Quiet' },
-    { range: '30-40 dB', color: '#8bc34a', desc: 'Quiet' },
-    { range: '40-50 dB', color: '#cddc39', desc: 'Moderate' },
-    { range: '50-60 dB', color: '#ffeb3b', desc: 'Noticeable' },
-    { range: '60-70 dB', color: '#ff9800', desc: 'Loud' },
-    { range: '70-80 dB', color: '#ff5722', desc: 'Very Loud' },
-    { range: '> 80 dB', color: '#f44336', desc: 'Extremely Loud' }
-  ];
+// Live sensor stats component
+const LiveSensorStats = React.memo(({ sensorData }) => {
+  // Get current timestamp for checking if sensor is active
+  const now = Date.now();
+  const activeThreshold = 30000; // 30 seconds
+  
+  // Create sensor status array - memoized to prevent recalculation
+  const sensorStats = useMemo(() => {
+    // Create array of 5 sensors with predefined IDs (matching the fake_esp32.py format)
+    const sensorIds = ['esp32-001', 'esp32-002', 'esp32-003', 'esp32-004', 'esp32-005'];
+    
+    return sensorIds.map(sensorId => {
+      const sensorInfo = sensorData.find(sensor => sensor.device_id === sensorId);
+      const isActive = sensorInfo && (now - sensorInfo.timestamp) < activeThreshold;
+      
+      return {
+        id: sensorId,
+        isActive,
+        db: sensorInfo ? sensorInfo.db : 0,
+        lastSeen: sensorInfo ? sensorInfo.timestamp : null,
+        location: sensorInfo ? `${sensorInfo.lat.toFixed(3)}, ${sensorInfo.lon.toFixed(3)}` : 'Unknown'
+      };
+    });
+  }, [sensorData, now, activeThreshold]);
+
+  const getStatusIcon = (isActive) => isActive ? '🟢' : '🔴';
+  const getStatusText = (isActive) => isActive ? 'ACTIVE' : 'OFFLINE';
+  const getStatusClass = (isActive) => isActive ? 'status-active' : 'status-offline';
 
   return (
-    <div className="noise-legend glass">
-      <h4>🔊 Noise Levels</h4>
-      <div className="legend-items">
-        {legendItems.map((item, index) => (
-          <div key={index} className="legend-item">
-            <div 
-              className="legend-color"
-              style={{ backgroundColor: item.color }}
-            ></div>
-            <div className="legend-text">
-              <span className="legend-range">{item.range}</span>
-              <span className="legend-desc">{item.desc}</span>
+    <div className="live-sensor-stats glass">
+      <div className="stats-header">
+        <h4>Live Sensor Status</h4>
+        <div className="stats-summary">
+          <span className="active-count">
+            {sensorStats.filter(s => s.isActive).length}/5 Active
+          </span>
+        </div>
+      </div>
+      
+      <div className="sensor-list">
+        {sensorStats.map((sensor, index) => (
+          <div key={sensor.id} className={`sensor-item ${getStatusClass(sensor.isActive)}`}>
+            <div className="sensor-header">
+              <div className="sensor-id">
+                {getStatusIcon(sensor.isActive)} {sensor.id}
+              </div>
+              <div className={`sensor-status ${getStatusClass(sensor.isActive)}`}>
+                {getStatusText(sensor.isActive)}
+              </div>
+            </div>
+            
+            <div className="sensor-data">
+              {sensor.isActive ? (
+                <>
+                  <div className="noise-reading">
+                    <span className="noise-value" style={{ color: getNoiseColor(sensor.db) }}>
+                      {sensor.db.toFixed(1)} dB
+                    </span>
+                    <span className="noise-desc">
+                      {getNoiseDescription(sensor.db)}
+                    </span>
+                  </div>
+                  <div className="sensor-meta">
+                    <div className="last-update">
+                      ⏰ {new Date(sensor.lastSeen).toLocaleTimeString()}
+                    </div>
+                  </div>
+                </>
+              ) : (
+                <div className="offline-message">
+                  <span>⚠️ No data received</span>
+                  {sensor.lastSeen && (
+                    <div className="last-seen">
+                      Last seen: {new Date(sensor.lastSeen).toLocaleTimeString()}
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           </div>
         ))}
       </div>
     </div>
   );
-};
+});
 
-// Custom marker component
-const AnimatedMarker = ({ sensor, index }) => {
+// Custom marker component - optimized with memo
+const AnimatedMarker = React.memo(({ sensor, index }) => {
   const [isActive, setIsActive] = useState(false);
   const markerRef = useRef(null);
 
@@ -192,52 +275,264 @@ const AnimatedMarker = ({ sensor, index }) => {
       </Popup>
     </CircleMarker>
   );
-};
+}, (prevProps, nextProps) => {
+  // Custom comparison to prevent unnecessary re-renders
+  return (
+    prevProps.sensor.device_id === nextProps.sensor.device_id &&
+    prevProps.sensor.db === nextProps.sensor.db &&
+    prevProps.sensor.timestamp === nextProps.sensor.timestamp &&
+    prevProps.sensor.lat === nextProps.sensor.lat &&
+    prevProps.sensor.lon === nextProps.sensor.lon
+  );
+});
 
 // Main NoiseMap component
 const NoiseMap = ({ sensorData, connectionStatus, settings }) => {
   const [mapStyle, setMapStyle] = useState('normal');
   const [mapCenter, setMapCenter] = useState([20.5937, 78.9629]); // India center
   const [mapZoom, setMapZoom] = useState(5);
+  const [showOverlay, setShowOverlay] = useState(true);
+  const [overlayOpacity, setOverlayOpacity] = useState(0.6);
+  const [interpolatedData, setInterpolatedData] = useState(null);
+  const [lastInterpolationTime, setLastInterpolationTime] = useState(0);
+  const mapRef = useRef(null);
+  const interpolationTimeoutRef = useRef(null);
+
+  // Throttled interpolation function to create smooth noise distribution
+  const interpolateNoiseData = useCallback((sensors) => {
+    if (sensors.length < 2) return null;
+
+    console.log(`🔧 Interpolating data for ${sensors.length} sensors:`, 
+      sensors.map(s => `${s.device_id}: ${s.db}dB at (${s.lat.toFixed(3)}, ${s.lon.toFixed(3)})`));
+
+    // Define grid bounds based on sensor locations with smaller padding
+    const lats = sensors.map(s => s.lat);
+    const lons = sensors.map(s => s.lon);
+    
+    // Use very small padding for tightly focused noise map coverage
+    // 2% margin around sensors for minimal overlay area
+    const sensorLatSpread = Math.max(...lats) - Math.min(...lats);
+    const sensorLonSpread = Math.max(...lons) - Math.min(...lons);
+    const basePadding = Math.max(sensorLatSpread, sensorLonSpread) * 0.02; // 0.2% margin
+    const padding = Math.max(0.0005, basePadding); // Minimum 0.0005 degrees (~0.05km)
+    
+    const minLat = Math.min(...lats) - padding;
+    const maxLat = Math.max(...lats) + padding;
+    const minLon = Math.min(...lons) - padding;
+    const maxLon = Math.max(...lons) + padding;
+
+    console.log(`🗺️ Interpolation bounds: lat(${minLat.toFixed(3)}, ${maxLat.toFixed(3)}), lon(${minLon.toFixed(3)}, ${maxLon.toFixed(3)})`);
+
+    // Adaptive grid size based on sensor spread
+    const latSpread = maxLat - minLat;
+    const lonSpread = maxLon - minLon;
+    const maxSpread = Math.max(latSpread, lonSpread);
+    
+    // Use higher resolution for smaller areas, lower for larger areas
+    let gridRes;
+    if (maxSpread < 1) gridRes = 80;      // High resolution for local areas
+    else if (maxSpread < 5) gridRes = 60; // Medium resolution for regional areas  
+    else gridRes = 40;                    // Lower resolution for country-wide areas
+    
+    const gridSize = [gridRes, gridRes];
+    const latStep = (maxLat - minLat) / gridSize[1];
+    const lonStep = (maxLon - minLon) / gridSize[0];
+
+    console.log(`📐 Using grid size: ${gridSize[0]}x${gridSize[1]}, resolution: ${gridRes}`);
+
+    let minDb = Infinity;
+    let maxDb = -Infinity;
+
+    // Enhanced Inverse Distance Weighting (IDW) interpolation
+    // Create a 2D array to properly handle coordinate mapping
+    const grid = [];
+    for (let i = 0; i < gridSize[1]; i++) {
+      grid[i] = [];
+    }
+    
+    for (let i = 0; i < gridSize[1]; i++) {
+      for (let j = 0; j < gridSize[0]; j++) {
+        // Important: Map grid coordinates to geographic coordinates properly
+        // i=0 should be maxLat (north), i=gridSize[1]-1 should be minLat (south)
+        // j=0 should be minLon (west), j=gridSize[0]-1 should be maxLon (east)
+        const lat = maxLat - (i * latStep); // Flip latitude (north at top)
+        const lon = minLon + (j * lonStep);   // Normal longitude (west to east)
+
+        let weightedSum = 0;
+        let weightSum = 0;
+
+        sensors.forEach(sensor => {
+          // Calculate actual geographic distance (approximation)
+          const deltaLat = lat - sensor.lat;
+          const deltaLon = lon - sensor.lon;
+          const distanceSquared = deltaLat * deltaLat + (deltaLon * Math.cos(lat * Math.PI / 180)) * (deltaLon * Math.cos(lat * Math.PI / 180));
+          
+          // Improved weight calculation with power parameter
+          const power = 2.0; // IDW power parameter
+          const weight = distanceSquared === 0 ? 1e10 : 1 / Math.pow(distanceSquared + 1e-10, power);
+          weightedSum += sensor.db * weight;
+          weightSum += weight;
+        });
+
+        const interpolatedValue = weightedSum / weightSum;
+        grid[i][j] = interpolatedValue;
+        
+        minDb = Math.min(minDb, interpolatedValue);
+        maxDb = Math.max(maxDb, interpolatedValue);
+      }
+    }
+    
+    // Convert 2D grid to 1D array in proper order (row-major)
+    const values = [];
+    for (let i = 0; i < gridSize[1]; i++) {
+      for (let j = 0; j < gridSize[0]; j++) {
+        values.push(grid[i][j]);
+      }
+    }
+
+    const result = {
+      interpolated_grid: {
+        bounds: [[minLat, minLon], [maxLat, maxLon]],
+        grid_size: gridSize,
+        values: values,
+        min_db: minDb,
+        max_db: maxDb
+      }
+    };
+
+    console.log(`📊 Interpolation complete: ${values.length} points, dB range: ${minDb.toFixed(1)} - ${maxDb.toFixed(1)}`);
+    
+    // Debug: Log some sample grid points to verify coordinate mapping
+    console.log(`🔍 Sample interpolation points:
+      Top-left (${maxLat.toFixed(3)}, ${minLon.toFixed(3)}): ${grid[0][0].toFixed(1)}dB
+      Top-right (${maxLat.toFixed(3)}, ${maxLon.toFixed(3)}): ${grid[0][gridSize[0]-1].toFixed(1)}dB
+      Bottom-left (${minLat.toFixed(3)}, ${minLon.toFixed(3)}): ${grid[gridSize[1]-1][0].toFixed(1)}dB
+      Bottom-right (${minLat.toFixed(3)}, ${maxLon.toFixed(3)}): ${grid[gridSize[1]-1][gridSize[0]-1].toFixed(1)}dB`);
+    
+    return result;
+  }, []);
+
+  // Throttled update function to limit interpolation frequency
+  const updateInterpolatedData = useCallback((sensors) => {
+    const now = Date.now();
+    const timeSinceLastInterpolation = now - lastInterpolationTime;
+    const minUpdateInterval = 200; // Reduced to 200ms for more responsive updates
+
+    // Clear any pending timeout
+    if (interpolationTimeoutRef.current) {
+      clearTimeout(interpolationTimeoutRef.current);
+    }
+
+    if (timeSinceLastInterpolation >= minUpdateInterval) {
+      // Update immediately if enough time has passed
+      const startTime = performance.now();
+      const interpolated = interpolateNoiseData(sensors);
+      const endTime = performance.now();
+      
+      console.log(`🚀 Interpolation completed in ${(endTime - startTime).toFixed(2)}ms`);
+      
+      setInterpolatedData(interpolated);
+      setLastInterpolationTime(now);
+    } else {
+      // Schedule update for later
+      const delay = minUpdateInterval - timeSinceLastInterpolation;
+      interpolationTimeoutRef.current = setTimeout(() => {
+        const startTime = performance.now();
+        const interpolated = interpolateNoiseData(sensors);
+        const endTime = performance.now();
+        
+        console.log(`🚀 Delayed interpolation completed in ${(endTime - startTime).toFixed(2)}ms`);
+        
+        setInterpolatedData(interpolated);
+        setLastInterpolationTime(Date.now());
+      }, delay);
+    }
+  }, [interpolateNoiseData, lastInterpolationTime]);
+
+  // Update interpolated data when sensor data changes (with throttling)
+  useEffect(() => {
+    if (sensorData.length >= 2) {
+      updateInterpolatedData(sensorData);
+    } else {
+      setInterpolatedData(null);
+    }
+    
+    // Cleanup timeout on unmount
+    return () => {
+      if (interpolationTimeoutRef.current) {
+        clearTimeout(interpolationTimeoutRef.current);
+      }
+    };
+  }, [sensorData, updateInterpolatedData]);
   
-  // Get current tile layer configuration based on style and dark mode
-  const getCurrentTileLayer = () => {
+  // Memoized tile layer configuration
+  const getCurrentTileLayer = useCallback(() => {
     if (mapStyle === 'satellite') {
       return mapStyles.satellite;
     } else {
       // For normal view, use dark or light based on settings.darkMode
       return settings.darkMode ? mapStyles.normal.dark : mapStyles.normal.light;
     }
-  };
+  }, [mapStyle, settings.darkMode]);
   
-  // Update map center based on sensor data
-  useEffect(() => {
-    if (sensorData.length > 0) {
-      // Calculate center point of all sensors
-      const lats = sensorData.map(s => s.lat);
-      const lons = sensorData.map(s => s.lon);
-      const avgLat = lats.reduce((sum, lat) => sum + lat, 0) / lats.length;
-      const avgLon = lons.reduce((sum, lon) => sum + lon, 0) / lons.length;
-      
-      setMapCenter([avgLat, avgLon]);
-      
-      // Adjust zoom based on sensor spread
-      if (sensorData.length > 1) {
-        const latSpread = Math.max(...lats) - Math.min(...lats);
-        const lonSpread = Math.max(...lons) - Math.min(...lons);
-        const maxSpread = Math.max(latSpread, lonSpread);
-        
-        if (maxSpread < 0.01) setMapZoom(15);
-        else if (maxSpread < 0.1) setMapZoom(12);
-        else if (maxSpread < 1) setMapZoom(9);
-        else setMapZoom(7);
-      }
+  // Memoized map center and zoom calculation
+  const mapCenterAndZoom = useMemo(() => {
+    if (sensorData.length === 0) {
+      return { center: [20.5937, 78.9629], zoom: 5 };
     }
-  }, [sensorData]);
 
-  const handleMapStyleChange = (style) => {
+    // Calculate center point of all sensors
+    const lats = sensorData.map(s => s.lat);
+    const lons = sensorData.map(s => s.lon);
+    const avgLat = lats.reduce((sum, lat) => sum + lat, 0) / lats.length;
+    const avgLon = lons.reduce((sum, lon) => sum + lon, 0) / lons.length;
+    
+    let zoom = 5;
+    
+    // Adjust zoom based on sensor spread
+    if (sensorData.length > 1) {
+      const latSpread = Math.max(...lats) - Math.min(...lats);
+      const lonSpread = Math.max(...lons) - Math.min(...lons);
+      const maxSpread = Math.max(latSpread, lonSpread);
+      
+      if (maxSpread < 0.01) zoom = 15;
+      else if (maxSpread < 0.1) zoom = 12;
+      else if (maxSpread < 1) zoom = 9;
+      else zoom = 7;
+    }
+
+    return { center: [avgLat, avgLon], zoom };
+  }, [sensorData]);
+  
+  // Update map center and zoom when calculated values change
+  useEffect(() => {
+    setMapCenter(mapCenterAndZoom.center);
+    setMapZoom(mapCenterAndZoom.zoom);
+  }, [mapCenterAndZoom]);
+
+  // Memoized event handlers to prevent unnecessary re-renders
+  const handleMapStyleChange = useCallback((style) => {
     setMapStyle(style);
-  };
+  }, []);
+
+  const handleToggleOverlay = useCallback((show) => {
+    setShowOverlay(show);
+  }, []);
+
+  const handleOpacityChange = useCallback((opacity) => {
+    setOverlayOpacity(opacity);
+  }, []);
+
+  // Memoized sensor markers to prevent unnecessary re-renders
+  const sensorMarkers = useMemo(() => {
+    return sensorData.map((sensor, index) => (
+      <AnimatedMarker 
+        key={sensor.device_id} 
+        sensor={sensor} 
+        index={index}
+      />
+    ));
+  }, [sensorData]);
 
   return (
     <div className="noise-map-container">      
@@ -245,10 +540,14 @@ const NoiseMap = ({ sensorData, connectionStatus, settings }) => {
       <SettingsPanel 
         settings={settings}
         onMapStyleChange={handleMapStyleChange}
+        showOverlay={showOverlay}
+        onToggleOverlay={handleToggleOverlay}
+        overlayOpacity={overlayOpacity}
+        onOpacityChange={handleOpacityChange}
       />
       
-      {/* Noise Legend */}
-      <NoiseLegend />
+      {/* Live Sensor Stats */}
+      <LiveSensorStats sensorData={sensorData} />
       
       {/* Main Map */}
       <MapContainer
@@ -258,20 +557,23 @@ const NoiseMap = ({ sensorData, connectionStatus, settings }) => {
         zoomControl={true}
         attributionControl={true}
         className="noise-leaflet-map"
+        ref={mapRef}
       >
         <TileLayer
           attribution={getCurrentTileLayer().attribution}
           url={getCurrentTileLayer().url}
         />
         
-        {/* Render sensor markers */}
-        {sensorData.map((sensor, index) => (
-          <AnimatedMarker 
-            key={sensor.device_id} 
-            sensor={sensor} 
-            index={index}
+        {/* Noise Distribution Overlay */}
+        {showOverlay && interpolatedData && (
+          <NoiseMapOverlay
+            interpolatedData={interpolatedData}
+            opacity={overlayOpacity}
           />
-        ))}
+        )}
+        
+        {/* Render sensor markers */}
+        {sensorMarkers}
       </MapContainer>
       
       {/* Connection Status Overlay */}
@@ -307,7 +609,14 @@ const NoiseMap = ({ sensorData, connectionStatus, settings }) => {
   );
 };
 
-export default NoiseMap;
+export default React.memo(NoiseMap, (prevProps, nextProps) => {
+  // Custom comparison to prevent unnecessary re-renders
+  const sensorDataChanged = JSON.stringify(prevProps.sensorData) !== JSON.stringify(nextProps.sensorData);
+  const connectionStatusChanged = prevProps.connectionStatus !== nextProps.connectionStatus;
+  const settingsChanged = JSON.stringify(prevProps.settings) !== JSON.stringify(nextProps.settings);
+  
+  return !sensorDataChanged && !connectionStatusChanged && !settingsChanged;
+});
 
 // import React, { useState, useEffect, useRef } from 'react';
 // import { MapContainer, TileLayer, CircleMarker, Tooltip } from 'react-leaflet';

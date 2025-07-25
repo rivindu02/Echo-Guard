@@ -146,7 +146,7 @@ class FakeESP32Device:
             self.thread.join()
 
 class ESP32Simulator:
-    def __init__(self, broker_host="localhost", broker_port=1884):
+    def __init__(self, broker_host="localhost", broker_port=1883):
         self.broker_host = broker_host
         self.broker_port = broker_port
         self.client = mqtt.Client()
@@ -174,12 +174,18 @@ class ESP32Simulator:
         logger.info(f"➕ Added device: {device_id} at {location_name}")
     
     def create_sample_devices(self):
-        """Create a single ESP32 device (like Pi server setup)"""
-        # Single device to simulate one ESP32 sending data directly to UI
-        device_data = ("esp32-001", 20.5937, 78.9629, "ESP32 Sensor")
+        """Create sample ESP32 devices with realistic locations"""
+        # Define 5 sensors at different realistic locations in India
+        device_locations = [
+            ("esp32-001", 6.7964368148947765, 79.90115269520993, "Entc"),
+            ("esp32-002", 6.795970586191689, 79.90096694791089, "Landscape"),
+            ("esp32-003", 6.796370339052377, 79.90072317233378, "Sentra-court"),
+            ("esp32-004", 6.796500450067444, 79.90172181262183, "CITec"),
+            ("esp32-005", 6.79677330410568, 79.90057941901183, "Sumanadasa")
+        ]
         
-        device_id, lat, lon, location = device_data
-        self.add_device(device_id, lat, lon, location)
+        for device_id, lat, lon, location in device_locations:
+            self.add_device(device_id, lat, lon, location)
     
     def start_all_devices(self, interval=5):
         """Start all devices"""
@@ -238,7 +244,7 @@ if __name__ == "__main__":
     
     parser = argparse.ArgumentParser(description='Fake ESP32 Noise Sensor Simulator')
     parser.add_argument('--broker', default='localhost', help='MQTT broker hostname (default: localhost)')
-    parser.add_argument('--port', type=int, default=1884, help='MQTT broker port (default: 1884)')
+    parser.add_argument('--port', type=int, default=1883, help='MQTT broker port (default: 1883)')
     parser.add_argument('--interval', type=int, default=5, help='Publishing interval in seconds (default: 5)')
     parser.add_argument('--devices', type=int, default=1, help='Number of devices to simulate (default: 1)')
     
@@ -247,9 +253,15 @@ if __name__ == "__main__":
     # Create simulator
     simulator = ESP32Simulator(args.broker, args.port)
     
-    # Add custom devices or use samples
-    if args.devices != 1:
-        # Generate random devices around a central point
+    # Create devices based on --devices argument
+    if args.devices <= 5:
+        # Use predefined realistic locations (first N devices)
+        simulator.create_sample_devices()
+        # Keep only the requested number of devices
+        simulator.devices = simulator.devices[:args.devices]
+        logger.info(f"📋 Using first {args.devices} predefined device(s)")
+    else:
+        # Generate random devices around a central point for more than 5
         center_lat, center_lon = 20.5937, 78.9629
         for i in range(args.devices):
             device_id = f"esp32-{i+1:03d}"
@@ -257,6 +269,7 @@ if __name__ == "__main__":
             lon = center_lon + random.uniform(-0.05, 0.05)
             location = f"Location {i+1}"
             simulator.add_device(device_id, lat, lon, location)
+        logger.info(f"📋 Generated {args.devices} random device(s)")
     
     # Run simulator
     simulator.run(args.interval)
