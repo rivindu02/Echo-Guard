@@ -26,13 +26,9 @@ log_type all
 # Allow anonymous connections
 allow_anonymous true
 
-# MQTT TCP port - listen on all interfaces
+# MQTT TCP port - listen on all interfaces (WebSocket will be handled by Python server)
 listener 1883 0.0.0.0
 protocol mqtt
-
-# WebSocket port - listen on all interfaces
-listener 9001 0.0.0.0
-protocol websockets
 EOF
 
 echo "4. Setting up directories and permissions..."
@@ -70,7 +66,7 @@ else
 fi
 
 echo "8. Checking ports..."
-netstat -tln | grep -E "(1883|9001)"
+netstat -tln | grep 1883
 
 echo "9. Testing MQTT connection..."
 timeout 5 mosquitto_pub -h localhost -p 1883 -t test/topic -m "test message"
@@ -85,11 +81,12 @@ echo "==========================================="
 echo "🎉 Mosquitto should now be working!"
 echo "==========================================="
 echo "MQTT Port 1883: $(netstat -tln | grep :1883 >/dev/null && echo 'OPEN' || echo 'CLOSED')"
-echo "WebSocket Port 9001: $(netstat -tln | grep :9001 >/dev/null && echo 'OPEN' || echo 'CLOSED')"
+echo "Note: WebSocket port 9001 will be handled by Python server"
 echo
 echo "Now you can:"
 echo "1. Test from Windows: python test_mqtt_connection.py 192.168.1.11"
 echo "2. Connect ESP32: python fake_esp32.py --broker 192.168.1.11"
+echo "3. Start full system: python3 start_noise_system.py"
 echo
 echo "To stop Mosquitto: kill $MOSQUITTO_PID"
 echo "==========================================="

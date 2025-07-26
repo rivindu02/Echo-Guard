@@ -107,13 +107,13 @@ class NoiseMapSystem:
             # Test if it's actually listening
             test_result = subprocess.run(['netstat', '-tln'], 
                                        capture_output=True, text=True)
-            if ':1883' in test_result.stdout and ':9001' in test_result.stdout:
-                logger.info("✅ Mosquitto MQTT broker started and listening")
+            if ':1883' in test_result.stdout:
+                logger.info("✅ Mosquitto MQTT broker started and listening on port 1883")
             else:
-                logger.warning("⚠️ Mosquitto started but may not be listening")
+                logger.warning("⚠️ Mosquitto started but not listening on port 1883")
                 logger.info("Port status:")
                 for line in test_result.stdout.split('\n'):
-                    if '1883' in line or '9001' in line:
+                    if '1883' in line:
                         logger.info(f"  {line}")
                 
                 # Try to get more info about what went wrong
