@@ -48,17 +48,62 @@ class NoiseMapSystem:
                 logger.error("   sudo apt install mosquitto mosquitto-clients")
                 return False
             
+            # Stop any existing mosquitto processes
+            try:
+                subprocess.run(['sudo', 'pkill', 'mosquitto'],
+                             capture_output=True, text=True)
+                time.sleep(1)
+            except Exception:
+                pass
+            
             # Start Mosquitto with custom config
             config_file = "/etc/mosquitto/mosquitto.conf"
-            if os.path.exists("mosquitto.conf"):
+            if os.path.exists("etc/mosquitto/mosquitto.conf"):
+                # Copy our config to system location
+                try:
+                    subprocess.run(['sudo', 'cp', 
+                                  'etc/mosquitto/mosquitto.conf', 
+                                  '/etc/mosquitto/mosquitto.conf'])
+                    logger.info("📄 Updated Mosquitto configuration")
+                except Exception as e:
+                    logger.warning(f"Could not update config: {e}")
+                    
+            elif os.path.exists("mosquitto.conf"):
                 config_file = "mosquitto.conf"
             
+            # Create necessary directories
+            dirs = ['/var/lib/mosquitto', '/var/log/mosquitto', '/run/mosquitto']
+            subprocess.run(['sudo', 'mkdir', '-p'] + dirs,
+                         capture_output=True)
+            
+            chown_dirs = ['mosquitto:mosquitto'] + dirs
+            subprocess.run(['sudo', 'chown', '-R'] + chown_dirs,
+                         capture_output=True)
+            
+            logger.info(f"🔧 Using config: {config_file}")
+            
+            # Start Mosquitto (not as daemon so we can monitor it)
             process = subprocess.Popen([
                 'mosquitto', '-c', config_file, '-v'
             ], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
             
             self.processes.append(('mosquitto', process))
-            logger.info("✅ Mosquitto MQTT broker started")
+            
+            # Give it time to start and test connectivity
+            time.sleep(2)
+            
+            # Test if it's actually listening
+            test_result = subprocess.run(['netstat', '-tln'], 
+                                       capture_output=True, text=True)
+            if ':1883' in test_result.stdout and ':9001' in test_result.stdout:
+                logger.info("✅ Mosquitto MQTT broker started and listening")
+            else:
+                logger.warning("⚠️ Mosquitto started but may not be listening")
+                logger.info("Port status:")
+                for line in test_result.stdout.split('\n'):
+                    if '1883' in line or '9001' in line:
+                        logger.info(f"  {line}")
+            
             return True
             
         except Exception as e:
