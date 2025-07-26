@@ -138,7 +138,9 @@ class NoiseMapSystem:
             logger.info("🌐 Starting Python MQTT broker server...")
             
             process = subprocess.Popen([
-                'python3', 'mqtt_broker_server.py'
+                'python3', 'mqtt_broker_server.py',
+                '--websocket-host', '0.0.0.0',  # Listen on all interfaces
+                '--broker-host', 'localhost'     # Connect to local Mosquitto
             ], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
             
             self.processes.append(('broker_server', process))

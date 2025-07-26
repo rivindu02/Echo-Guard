@@ -424,3 +424,30 @@
 2025-07-26 16:02:16,379 - INFO - 🛑 Received shutdown signal
 2025-07-26 16:02:16,381 - INFO - connection closed
 2025-07-26 16:02:16,384 - INFO - connection closed
+2025-07-26 19:58:24,437 - INFO - 🚀 Starting MQTT Broker Server with WebSocket support...
+2025-07-26 19:58:24,440 - INFO - 🔌 MQTT client connecting to localhost:1883
+2025-07-26 19:58:24,442 - INFO - 🧹 Started data cleanup service
+2025-07-26 19:58:24,487 - INFO - ✅ Connected to MQTT broker successfully
+2025-07-26 19:58:24,570 - INFO - server listening on 0.0.0.0:9001
+2025-07-26 19:58:24,571 - INFO - 🌐 WebSocket server listening on ws://0.0.0.0:9001
+2025-07-26 19:58:24,571 - INFO - 🚀 MQTT Broker Server started successfully!
+2025-07-26 19:58:24,572 - INFO - 📡 WebSocket URL: ws://0.0.0.0:9001
+2025-07-26 19:58:24,572 - INFO - 🔌 MQTT connection: localhost:1883
+2025-07-26 19:58:24,573 - INFO - 📍 Ready to receive ESP32 sensor data and serve React UI
+2025-07-26 20:00:47,938 - INFO - connection failed (400 Bad Request)
+2025-07-26 20:00:47,940 - INFO - connection closed
+2025-07-26 20:03:30,818 - INFO - 🚀 Starting MQTT Broker Server with WebSocket support...
+2025-07-26 20:03:30,821 - INFO - 🔌 MQTT client connecting to localhost:1883
+2025-07-26 20:03:30,822 - INFO - 🧹 Started data cleanup service
+2025-07-26 20:03:30,851 - INFO - ✅ Connected to MQTT broker successfully
+2025-07-26 20:03:30,903 - INFO - server listening on 0.0.0.0:9001
+2025-07-26 20:03:30,904 - INFO - 🌐 WebSocket server listening on ws://0.0.0.0:9001
+2025-07-26 20:03:30,905 - INFO - 🚀 MQTT Broker Server started successfully!
+2025-07-26 20:03:30,905 - INFO - 📡 WebSocket URL: ws://localhost:9001
+2025-07-26 20:03:30,906 - INFO - 🔌 MQTT connection: localhost:1883
+2025-07-26 20:03:30,906 - INFO - 📍 Ready to receive ESP32 sensor data and serve React UI
+2025-07-26 21:49:34,988 - WARNING - ❌ Disconnected from MQTT broker: 7
+2025-07-26 21:49:36,062 - INFO - ✅ Connected to MQTT broker successfully
+2025-07-26 22:26:08,417 - WARNING - ❌ Disconnected from MQTT broker: 7
+2025-07-26 22:26:09,521 - INFO - ✅ Connected to MQTT broker successfully
+2025-07-26 22:31:18,749 - INFO - 🛑 Received shutdown signal

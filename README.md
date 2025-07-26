@@ -22,24 +22,35 @@ ESP32 Sensors → MQTT → Python Backend → WebSocket → React UI
 
 ## Quick Start
 
-### 1. Start the Python Backend
+### 🏠 Local Testing (No Hardware Required)
+```cmd
+# Windows - One command setup
+start_local_system.bat
+
+# Access at: http://localhost:3000
+```
+👉 **See [LOCAL_TESTING_GUIDE.md](LOCAL_TESTING_GUIDE.md) for complete local development setup**
+
+### 🏭 Production Setup (With ESP32 Hardware)
+
+#### 1. Start the Python Backend
 ```bash
 cd Server
 python start_noise_system.py
 ```
 
-### 2. Start the React UI
+#### 2. Start the React UI
 ```bash
 cd mqtt-noise-map-ui
 npm start
 ```
 
-### 3. Access the Application
+#### 3. Access the Application
 - **Web Interface:** http://localhost:3000
 - **WebSocket Connection:** ws://localhost:9001
 - **MQTT Broker:** localhost:1883
 
-### 4. Test with Simulated Sensors
+#### 4. Test with Simulated Sensors
 ```bash
 python fake_esp32.py
 ```
@@ -69,10 +80,24 @@ python fake_esp32.py
 
 ## Documentation
 
+### Setup Guides
+- **[LOCAL_TESTING_GUIDE.md](LOCAL_TESTING_GUIDE.md)** - Test without hardware (recommended for beginners)
+- **[SETUP.md](SETUP.md)** - Complete installation guide
+- **[PI_SETUP_GUIDE.md](PI_SETUP_GUIDE.md)** - Raspberry Pi deployment
+
+### Technical Documentation  
 - **[Python Backend Setup](Server/README.md)** - Complete backend documentation
 - **[React UI Guide](mqtt-noise-map-ui/README.md)** - Frontend setup and usage
 - **[ESP32 Configuration](ESP32_Noise_Sensor/)** - Sensor programming guide
 - **[System Architecture](docs/protocol.md)** - Technical specifications
+
+### Testing Options
+
+| Mode | Description | Hardware | Coordinates | Best For |
+|------|-------------|----------|-------------|----------|
+| **🏠 Local Testing** | Simulated sensors on single PC | None | Hardcoded in fake_esp32.py | Learning, development |
+| **🧪 Hybrid Testing** | Mix of real + fake sensors | Some ESP32s | GPS (real) + hardcoded (fake) | Incremental testing |
+| **🏭 Production** | All real hardware | ESP32 + Raspberry Pi | GPS auto-detected | Live deployment |
 
 ## Project Structure
 

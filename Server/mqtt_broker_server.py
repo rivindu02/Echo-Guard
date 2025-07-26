@@ -41,11 +41,12 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 class MQTTBrokerServer:
-    def __init__(self):
+    def __init__(self, websocket_host="localhost", broker_host="localhost"):
         # Configuration
         self.mqtt_port = 1883
         self.websocket_port = 9001
-        self.broker_host = "localhost"
+        self.websocket_host = websocket_host  # Allow external connections
+        self.broker_host = broker_host
         
         # Data storage
         self.sensor_data: Dict[str, Any] = {}
@@ -291,12 +292,12 @@ class MQTTBrokerServer:
         """Start the WebSocket server"""
         server = await websockets.serve(
             self.websocket_handler,
-            "0.0.0.0",
+            self.websocket_host,
             self.websocket_port,
             ping_interval=20,
             ping_timeout=10
         )
-        logger.info(f"🌐 WebSocket server listening on ws://0.0.0.0:{self.websocket_port}")
+        logger.info(f"🌐 WebSocket server listening on ws://{self.websocket_host}:{self.websocket_port}")
         return server
     
     def cleanup_old_data(self):
@@ -343,7 +344,8 @@ class MQTTBrokerServer:
         websocket_server = await self.start_websocket_server()
         
         logger.info("🚀 MQTT Broker Server started successfully!")
-        logger.info(f"📡 WebSocket URL: ws://0.0.0.0:{self.websocket_port}")
+        ws_url = f"ws://{self.websocket_host}:{self.websocket_port}"
+        logger.info(f"📡 WebSocket URL: {ws_url}")
         logger.info(f"🔌 MQTT connection: {self.broker_host}:1883")
         logger.info("📍 Ready to receive ESP32 sensor data and serve React UI")
         
@@ -362,12 +364,30 @@ def signal_handler(signum, frame):
 
 async def main():
     """Main entry point"""
+    import argparse
+    
+    parser = argparse.ArgumentParser(
+        description='MQTT Broker Server with WebSocket support'
+    )
+    parser.add_argument(
+        '--websocket-host', default='localhost',
+        help='WebSocket server host (default: localhost)'
+    )
+    parser.add_argument(
+        '--broker-host', default='localhost',
+        help='MQTT broker host to connect to (default: localhost)'
+    )
+    args = parser.parse_args()
+    
     # Setup signal handlers
     signal.signal(signal.SIGINT, signal_handler)
     signal.signal(signal.SIGTERM, signal_handler)
     
-    # Create and run server
-    server = MQTTBrokerServer()
+    # Create and run server with network configuration
+    server = MQTTBrokerServer(
+        websocket_host=args.websocket_host,
+        broker_host=args.broker_host
+    )
     await server.run()
 
 if __name__ == "__main__":

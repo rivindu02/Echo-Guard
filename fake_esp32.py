@@ -175,10 +175,15 @@ class ESP32Simulator:
         logger.info(f"➕ Added device: {device_id} at {location_name}")
     
     def create_sample_devices(self):
-        """Create sample ESP32 devices with realistic locations"""
-        # Define 5 sensors at different realistic locations in India
+        """Create sample ESP32 devices with hardcoded test locations
+        
+        Note: These are fixed coordinates for testing only.
+        Real ESP32 devices use GPS modules to automatically determine
+        and transmit their actual coordinates.
+        """
+        # Define 5 sensors at fixed test coordinates
         device_locations = [
-            ("esp32-001", 6.7964368148947765, 79.90115269520993, "Entc"),
+            ("esp32-001", 6.7964368148947765, 79.90115269520993, "ENTC"),
             ("esp32-002", 6.795970586191689, 79.90096694791089, "Landscape"),
             ("esp32-003", 6.796370339052377, 79.90072317233378, "Sentra-court"),
             ("esp32-004", 6.796500450067444, 79.90172181262183, "CITec"),

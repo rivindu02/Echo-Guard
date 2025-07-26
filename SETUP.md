@@ -1,10 +1,28 @@
 # Smart Noise Mapping System Setup Guide
 
-## Quick Start (Recommended)
+## 🏠 Local Testing (No Hardware Required)
+
+**For development and testing without ESP32 sensors or Raspberry Pi:**
+
+👉 **See [LOCAL_TESTING_GUIDE.md](LOCAL_TESTING_GUIDE.md) for complete local setup**
+
+### Quick Local Start
+```cmd
+# Windows - One command setup
+start_local_system.bat
+
+# This starts: MQTT broker + WebSocket server + Fake sensors + React UI
+```
+
+**Access:** http://localhost:3000 (with simulated sensor data)
+
+---
+
+## 🏭 Production Setup (With Hardware)
 
 ### Automated Setup
 ```bash
-# Start the complete Python-based system
+# Start the complete Python-based system on Raspberry Pi
 cd Server
 python start_noise_system.py
 ```
@@ -23,24 +41,41 @@ npm start
 
 ### Access Application
 - **Web Interface:** http://localhost:3000
-- **Real-time data** will appear automatically
+- **Real-time data** from physical ESP32 sensors
 
-## Test with Simulated Sensors
+## 🧪 Test with Simulated Sensors
 
 ```bash
-# Start 5 ESP32 simulators
+# Start 5 ESP32 simulators (for testing without hardware)
 python fake_esp32.py
 ```
 
-### Simulated Sensor Locations
+### Simulated Sensor Locations (Testing Only)
 
-| Device ID | Location | Latitude | Longitude | 
-|-----------|----------|----------|-----------|
-| esp32-001 | Central India - Urban | 20.5937 | 78.9629 |
-| esp32-002 | New Delhi - Traffic Junction | 28.6139 | 77.2090 |
-| esp32-003 | Mumbai - Industrial Area | 19.0760 | 72.8777 |
-| esp32-004 | Chennai - Residential | 13.0827 | 80.2707 |
-| esp32-005 | Kolkata - Commercial District | 22.5726 | 88.3639 |
+| Device ID | Coordinates | 
+|-----------|-------------|
+| esp32-001 | 6.7964, 79.9012 |
+| esp32-002 | 6.7960, 79.9010 |
+| esp32-003 | 6.7964, 79.9007 |
+| esp32-004 | 6.7965, 79.9017 |
+| esp32-005 | 6.7968, 79.9006 |
+
+> **For Real Deployment:** ESP32 devices automatically determine their coordinates using built-in GPS modules and transmit them along with noise sensor data. No manual location configuration required.
+
+## 📋 Setup Options Summary
+
+| Setup Type | Use Case | Hardware Required | Complexity |
+|------------|----------|-------------------|------------|
+| **🏠 Local Testing** | Development, demos, learning | None | ⭐ Easy |
+| **🏭 Production** | Real deployment | ESP32 + Raspberry Pi | ⭐⭐⭐ Advanced |
+| **🧪 Hybrid** | Testing with some real sensors | Some ESP32 devices | ⭐⭐ Medium |
+
+### Choose Your Setup:
+- **New to the project?** → [LOCAL_TESTING_GUIDE.md](LOCAL_TESTING_GUIDE.md)
+- **Deploying for real use?** → Continue with Production Setup below
+- **Have some ESP32s?** → Mix real sensors with `fake_esp32.py`
+
+---
 
 ## Manual Setup (Advanced)
 
