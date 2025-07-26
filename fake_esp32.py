@@ -9,6 +9,7 @@ import json
 import time
 import random
 import threading
+import socket
 import paho.mqtt.client as mqtt
 from datetime import datetime
 import logging
@@ -208,36 +209,83 @@ class ESP32Simulator:
         logger.info("✅ All devices stopped")
     
     def run(self, interval=5):
-        """Run the simulator"""
-        try:
-            # Connect to MQTT broker
-            logger.info(f"🔌 Connecting to MQTT broker at {self.broker_host}:{self.broker_port}")
-            self.client.connect(self.broker_host, self.broker_port, 60)
-            self.client.loop_start()
-            
-            # Create sample devices if none exist
-            if not self.devices:
-                self.create_sample_devices()
-            
-            # Start all devices
-            self.start_all_devices(interval)
-            
-            # Keep running
-            logger.info("📡 ESP32 Simulator running... Press Ctrl+C to stop")
-            while True:
-                time.sleep(1)
-                
-        except KeyboardInterrupt:
-            logger.info("\n🛑 Stopping ESP32 Simulator...")
-            self.stop_all_devices()
-            self.client.loop_stop()
-            self.client.disconnect()
-            logger.info("👋 ESP32 Simulator stopped")
+        """Run the simulator with retry logic"""
+        max_retries = 5
+        retry_delay = 3
         
-        except Exception as e:
-            logger.error(f"❌ Simulator error: {e}")
-            self.stop_all_devices()
-            raise
+        for attempt in range(max_retries):
+            try:
+                # Connect to MQTT broker
+                logger.info(f"🔌 Connecting to MQTT broker at {self.broker_host}:{self.broker_port}")
+                if attempt > 0:
+                    logger.info(f"   Attempt {attempt + 1}/{max_retries}")
+                
+                self.client.connect(self.broker_host, self.broker_port, 60)
+                self.client.loop_start()
+                
+                logger.info("✅ Connected to MQTT broker successfully!")
+                
+                # Create sample devices if none exist
+                if not self.devices:
+                    self.create_sample_devices()
+                
+                # Start all devices
+                self.start_all_devices(interval)
+                
+                # Keep running
+                logger.info("📡 ESP32 Simulator running... Press Ctrl+C to stop")
+                while True:
+                    time.sleep(1)
+                    
+            except KeyboardInterrupt:
+                logger.info("\n🛑 Stopping ESP32 Simulator...")
+                self.stop_all_devices()
+                self.client.loop_stop()
+                self.client.disconnect()
+                logger.info("👋 ESP32 Simulator stopped")
+                return
+                
+            except ConnectionRefusedError as e:
+                logger.error(f"❌ Connection refused by {self.broker_host}:{self.broker_port}")
+                if attempt < max_retries - 1:
+                    logger.info(f"🔄 Retrying in {retry_delay} seconds...")
+                    logger.info("💡 Make sure MQTT broker is running on the target machine:")
+                    if self.broker_host == 'localhost' or self.broker_host == '127.0.0.1':
+                        logger.info("   For localhost: python Server/mqtt_broker_server.py")
+                    else:
+                        logger.info(f"   For {self.broker_host}: python3 start_noise_system.py")
+                        logger.info(f"   Or check: telnet {self.broker_host} {self.broker_port}")
+                    time.sleep(retry_delay)
+                    retry_delay += 2  # Increase delay for next attempt
+                else:
+                    logger.error("❌ Max retries reached. Cannot connect to MQTT broker.")
+                    logger.error("")
+                    logger.error("🔧 TROUBLESHOOTING STEPS:")
+                    logger.error("========================")
+                    if self.broker_host == 'localhost' or self.broker_host == '127.0.0.1':
+                        logger.error("For LOCAL setup:")
+                        logger.error("1. Start MQTT broker: python Server/mqtt_broker_server.py")
+                        logger.error("2. Or use: ./start_local_system.bat")
+                    else:
+                        logger.error(f"For REMOTE setup ({self.broker_host}):")
+                        logger.error(f"1. SSH to {self.broker_host}")
+                        logger.error("2. Run: python3 start_noise_system.py")
+                        logger.error("3. Check ports: sudo netstat -tlnp | grep :1883")
+                        logger.error(f"4. Test connectivity: ping {self.broker_host}")
+                        logger.error(f"5. Test port: telnet {self.broker_host} 1883")
+                    logger.error("")
+                    raise
+                    
+            except Exception as e:
+                logger.error(f"❌ Unexpected error: {e}")
+                if attempt < max_retries - 1:
+                    logger.info(f"🔄 Retrying in {retry_delay} seconds...")
+                    time.sleep(retry_delay)
+                    retry_delay += 2
+                else:
+                    logger.error("❌ Max retries reached due to unexpected errors.")
+                    self.stop_all_devices()
+                    raise
 
 if __name__ == "__main__":
     import argparse
