@@ -85,12 +85,24 @@ class NoiseMapSystem:
             # Start Mosquitto (not as daemon so we can monitor it)
             process = subprocess.Popen([
                 'mosquitto', '-c', config_file, '-v'
-            ], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            ], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
             
             self.processes.append(('mosquitto', process))
             
             # Give it time to start and test connectivity
-            time.sleep(2)
+            time.sleep(3)
+            
+            # Check if process is still running
+            if process.poll() is not None:
+                # Process has already terminated, get the error
+                stdout, stderr = process.communicate()
+                logger.error(f"❌ Mosquitto failed to start!")
+                logger.error(f"Exit code: {process.returncode}")
+                if stdout:
+                    logger.error(f"STDOUT: {stdout}")
+                if stderr:
+                    logger.error(f"STDERR: {stderr}")
+                return False
             
             # Test if it's actually listening
             test_result = subprocess.run(['netstat', '-tln'], 
@@ -103,6 +115,16 @@ class NoiseMapSystem:
                 for line in test_result.stdout.split('\n'):
                     if '1883' in line or '9001' in line:
                         logger.info(f"  {line}")
+                
+                # Try to get more info about what went wrong
+                if process.poll() is None:  # Still running
+                    # Get partial output
+                    try:
+                        stdout, stderr = process.communicate(timeout=1)
+                        if stderr:
+                            logger.error(f"Mosquitto stderr: {stderr}")
+                    except subprocess.TimeoutExpired:
+                        pass
             
             return True
             
@@ -117,9 +139,24 @@ class NoiseMapSystem:
             
             process = subprocess.Popen([
                 'python3', 'mqtt_broker_server.py'
-            ], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            ], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
             
             self.processes.append(('broker_server', process))
+            
+            # Give it time to start
+            time.sleep(2)
+            
+            # Check if it's still running
+            if process.poll() is not None:
+                stdout, stderr = process.communicate()
+                logger.error("❌ MQTT broker server failed to start")
+                logger.error(f"Exit code: {process.returncode}")
+                if stdout:
+                    logger.error(f"STDOUT: {stdout}")
+                if stderr:
+                    logger.error(f"STDERR: {stderr}")
+                return False
+            
             logger.info("✅ MQTT broker server started")
             return True
             
