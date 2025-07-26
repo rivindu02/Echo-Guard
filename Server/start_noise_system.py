@@ -261,16 +261,19 @@ class NoiseMapSystem:
         monitor_thread = threading.Thread(target=self.monitor_processes, daemon=True)
         monitor_thread.start()
         
+        # Pi's IP address
+        pi_ip = "192.168.1.11"
+        
         logger.info("🎉 Noise Mapping System started successfully!")
         logger.info("")
         logger.info("📍 System Endpoints:")
-        logger.info("   🦟 MQTT Broker (TCP): 192.168.1.11:1883")
-        logger.info("   🌐 WebSocket Server: ws://192.168.1.11:9001")
+        logger.info(f"   🦟 MQTT Broker (TCP): {pi_ip}:1883")
+        logger.info(f"   🌐 WebSocket Server: ws://{pi_ip}:9001")
         logger.info("   📊 Data Processing: Active")
         logger.info("")
         logger.info("📱 To connect from Windows:")
-        logger.info("   ESP32: python fake_esp32.py --broker 192.168.1.11")
-        logger.info("   React UI: REACT_APP_WEBSOCKET_URL=ws://192.168.1.11:9001")
+        logger.info(f"   ESP32: python fake_esp32.py --broker {pi_ip}")
+        logger.info(f"   React UI: REACT_APP_WEBSOCKET_URL=ws://{pi_ip}:9001")
         logger.info("")
         logger.info("🛑 Press Ctrl+C to stop the system")
         
