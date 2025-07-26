@@ -41,11 +41,11 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 class MQTTBrokerServer:
-    def __init__(self, websocket_host="localhost", broker_host="localhost"):
-        # Configuration
+    def __init__(self, websocket_host="0.0.0.0", broker_host="localhost"):
+        # Configuration - 0.0.0.0 allows external connections
         self.mqtt_port = 1883
         self.websocket_port = 9001
-        self.websocket_host = websocket_host  # Allow external connections
+        self.websocket_host = websocket_host  # 0.0.0.0 for external access
         self.broker_host = broker_host
         
         # Data storage

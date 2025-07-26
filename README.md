@@ -31,6 +31,18 @@ start_local_system.bat
 ```
 👉 **See [LOCAL_TESTING_GUIDE.md](LOCAL_TESTING_GUIDE.md) for complete local development setup**
 
+### 🥧 Raspberry Pi as MQTT Broker (Recommended)
+```cmd
+# Quick setup with Pi as broker
+configure_ip.bat     # Set your Pi IP (run once)
+connect_to_pi.bat    # Connect to Pi and start UI
+
+# Manual setup
+python fake_esp32.py --pi                # Send data to Pi
+cd mqtt-noise-map-ui && npm start        # UI connects to Pi
+```
+👉 **See [PI_CONNECTION_GUIDE.md](PI_CONNECTION_GUIDE.md) for complete Pi setup**
+
 ### 🏭 Production Setup (With ESP32 Hardware)
 
 #### 1. Start the Python Backend
@@ -47,7 +59,7 @@ npm start
 
 #### 3. Access the Application
 - **Web Interface:** http://localhost:3000
-- **WebSocket Connection:** ws://localhost:9001
+- **WebSocket Connection:** ws://localhost:9001 (local) or ws://PI_IP:9001 (Pi)
 - **MQTT Broker:** localhost:1883
 
 #### 4. Test with Simulated Sensors
