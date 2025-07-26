@@ -17,7 +17,7 @@ sudo apt install mosquitto mosquitto-clients -y
 echo "3. Creating simple working configuration..."
 sudo tee /etc/mosquitto/mosquitto.conf > /dev/null << 'EOF'
 # Basic Mosquitto Configuration
-pid_file /run/mosquitto/mosquitto.pid
+# Don't use PID file to avoid permission issues
 persistence true
 persistence_location /var/lib/mosquitto/
 log_dest stdout
