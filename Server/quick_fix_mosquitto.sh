@@ -40,9 +40,18 @@ sudo mkdir -p /var/lib/mosquitto /var/log/mosquitto /run/mosquitto
 sudo chown -R mosquitto:mosquitto /var/lib/mosquitto /var/log/mosquitto /run/mosquitto 2>/dev/null || echo "Note: mosquitto user may not exist, continuing..."
 
 echo "5. Testing Mosquitto configuration..."
-mosquitto -c /etc/mosquitto/mosquitto.conf -t
-if [ $? -ne 0 ]; then
+# Note: -t option doesn't exist in mosquitto 2.0.11, so we'll just try to start it briefly
+mosquitto -c /etc/mosquitto/mosquitto.conf -v &
+TEST_PID=$!
+sleep 2
+
+if kill -0 $TEST_PID 2>/dev/null; then
+    echo "✅ Configuration appears to be working"
+    kill $TEST_PID
+    wait $TEST_PID 2>/dev/null
+else
     echo "❌ Configuration test failed!"
+    wait $TEST_PID 2>/dev/null
     exit 1
 fi
 

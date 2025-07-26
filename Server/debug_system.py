@@ -16,17 +16,25 @@ def test_mosquitto_config():
         print(f"❌ Config file not found: {config_file}")
         return False
     
-    # Test config
-    result = subprocess.run(['mosquitto', '-c', config_file, '-t'], 
-                          capture_output=True, text=True)
+    # Test config by trying to start mosquitto briefly
+    process = subprocess.Popen(['mosquitto', '-c', config_file, '-v'], 
+                              stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
     
-    if result.returncode == 0:
-        print("✅ Mosquitto configuration is valid")
+    time.sleep(2)
+    
+    if process.poll() is None:
+        print("✅ Mosquitto configuration appears valid")
+        process.terminate()
+        process.wait()
         return True
     else:
-        print("❌ Mosquitto configuration is invalid:")
-        print(f"STDOUT: {result.stdout}")
-        print(f"STDERR: {result.stderr}")
+        stdout, stderr = process.communicate()
+        print("❌ Mosquitto configuration test failed:")
+        print(f"Exit code: {process.returncode}")
+        if stdout:
+            print(f"STDOUT: {stdout}")
+        if stderr:
+            print(f"STDERR: {stderr}")
         return False
 
 def test_python_scripts():
