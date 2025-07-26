@@ -40,7 +40,24 @@ ESP32 Sensors → Raspberry Pi (Python) → React UI
 
 ## Quick Start
 
-### Prerequisites
+### For Raspberry Pi (Recommended)
+
+**🚀 One-command installation:**
+```bash
+cd Server
+chmod +x cleanup_and_install.sh
+./cleanup_and_install.sh
+```
+
+This script will:
+- Fix any broken package installations
+- Install all system dependencies
+- Create a clean Python virtual environment
+- Install only the required packages (no scipy issues)
+- Configure Mosquitto MQTT broker
+- Verify everything works
+
+### For Other Platforms
 
 1. **Install Python dependencies:**
 ```bash
