@@ -1,33 +1,99 @@
 @echo off
 echo ========================================
-echo   Noise Mapping - Pi Connection Setup
+echo   Connect to Raspberry Pi (192.168.1.12)
 echo ========================================
 echo.
-echo This script connects to Raspberry Pi as MQTT broker
-echo Pi IP: 192.168.1.12 (edit config.ini to change)
+echo 🥧 RASPBERRY PI SETUP - Using Pi as Central MQTT Broker
 echo.
-echo What this does:
-echo 1. Starts fake_esp32.py to send data to Pi
-echo 2. Configures React UI to connect to Pi WebSocket
-echo 3. Starts React UI locally
+echo This will configure the system to use your Raspberry Pi at 192.168.1.12 as:
+echo ✅ Central MQTT broker (port 1883)
+echo ✅ WebSocket server (port 9001)  
+echo ✅ Data processing hub
 echo.
-echo Make sure your Pi is running:
-echo   python3 start_noise_system.py
+echo 📡 Your PC will run:
+echo ✅ Simulated ESP32 sensors (fake_esp32.py)
+echo ✅ React UI (connects to Pi)
 echo.
-pause
+
+echo 🧪 Step 1: Testing Pi connection...
+echo Testing if Pi is reachable...
+ping -n 2 192.168.1.12 > nul
+if %errorlevel% == 0 (
+    echo ✅ Pi is reachable at 192.168.1.12
+) else (
+    echo ❌ Cannot reach Pi at 192.168.1.12
+    echo.
+    echo 🔧 TROUBLESHOOTING:
+    echo 1. Check Pi is powered on and connected to WiFi
+    echo 2. Verify Pi IP: ssh pi@192.168.1.12
+    echo 3. Make sure both devices are on same network
+    echo.
+    pause
+    exit /b 1
+)
 
 echo.
-echo 📡 Step 1: Starting fake ESP32 sensors (connecting to Pi)...
-echo.
-start /b cmd /c "python fake_esp32.py --pi && pause"
-
-echo.
-echo 🔧 Step 2: Configuring React UI for Pi connection...
+echo � Step 2: Configuring React UI for Pi connection...
 cd mqtt-noise-map-ui
+echo # Raspberry Pi connection configuration> .env.local
+echo # React UI connects to Pi WebSocket server>> .env.local
+echo REACT_APP_WEBSOCKET_URL=ws://192.168.1.12:9001>> .env.local
+echo REACT_APP_MQTT_BROKER_URL=ws://192.168.1.12:9001>> .env.local
+echo REACT_APP_MQTT_TOPIC_PREFIX=noise>> .env.local
+echo.>> .env.local
+echo # Map configuration>> .env.local
+echo REACT_APP_DEFAULT_MAP_CENTER_LAT=6.7964>> .env.local
+echo REACT_APP_DEFAULT_MAP_CENTER_LON=79.9012>> .env.local
+echo REACT_APP_DEFAULT_MAP_ZOOM=15>> .env.local
+echo.>> .env.local
+echo # Development features>> .env.local
+echo REACT_APP_ENABLE_NOTIFICATIONS=true>> .env.local
+echo REACT_APP_AUTO_REFRESH_INTERVAL=3000>> .env.local
+echo REACT_APP_DEBUG_MODE=true>> .env.local
+cd ..
 
-REM Create backup of current .env
-if exist .env (
-    copy .env .env.backup > nul
+echo ✅ React UI configured to connect to Pi (192.168.1.12:9001)
+echo.
+
+echo � Next Steps:
+echo.
+echo 🥧 ON RASPBERRY PI (192.168.1.12):
+echo    1. SSH to Pi: ssh pi@192.168.1.12
+echo    2. Navigate to project: cd ~/Noise-mapping
+echo    3. Start services: python3 Server/start_noise_system.py
+echo.
+echo 💻 ON THIS PC:
+echo    1. Start ESP32 simulators: python fake_esp32.py --broker 192.168.1.12
+echo    2. Start React UI: cd mqtt-noise-map-ui ^&^& npm start
+echo    3. Access UI: http://localhost:3000
+echo.
+echo 🎯 Expected Data Flow:
+echo    PC (fake ESP32s) → Pi (MQTT broker) → PC (React UI)
+echo.
+
+set /p start="Do you want to start the ESP32 simulators now? (y/n): "
+if /i "%start%"=="y" goto start_esp32
+if /i "%start%"=="yes" goto start_esp32
+goto manual
+
+:start_esp32
+echo.
+echo 🚀 Starting ESP32 simulators (sending data to Pi)...
+echo Press Ctrl+C to stop the simulators
+echo.
+python fake_esp32.py --broker 192.168.1.12 --devices 5 --interval 3
+goto end
+
+:manual
+echo.
+echo ✅ Configuration complete! 
+echo.
+echo Manual startup commands:
+echo 1. python fake_esp32.py --broker 192.168.1.12
+echo 2. cd mqtt-noise-map-ui ^&^& npm start
+echo.
+
+:end
     echo ✅ Backed up current .env to .env.backup
 )
 

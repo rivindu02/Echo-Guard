@@ -31,15 +31,15 @@ start_local_system.bat
 ```
 👉 **See [LOCAL_TESTING_GUIDE.md](LOCAL_TESTING_GUIDE.md) for complete local development setup**
 
-### 🥧 Raspberry Pi as MQTT Broker (Recommended)
+### 🥧 Raspberry Pi as MQTT Broker (192.168.1.12)
 ```cmd
 # Quick setup with Pi as broker
-configure_ip.bat     # Set your Pi IP (run once)
-connect_to_pi.bat    # Connect to Pi and start UI
+configure_connection.bat     # Set your Pi IP (run once)
+connect_to_pi.bat           # Connect to Pi and start UI
 
 # Manual setup
-python fake_esp32.py --pi                # Send data to Pi
-cd mqtt-noise-map-ui && npm start        # UI connects to Pi
+python fake_esp32.py --broker 192.168.1.12   # Send data to Pi
+cd mqtt-noise-map-ui && npm start            # UI connects to Pi
 ```
 👉 **See [PI_CONNECTION_GUIDE.md](PI_CONNECTION_GUIDE.md) for complete Pi setup**
 

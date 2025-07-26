@@ -5,7 +5,7 @@ echo ========================================
 echo.
 echo Choose your setup:
 echo 1. Local setup (localhost)
-echo 2. Raspberry Pi setup (192.168.1.11)
+echo 2. Raspberry Pi setup (192.168.1.12)
 echo 3. Custom IP address
 echo.
 set /p choice="Enter your choice (1-3): "
@@ -27,7 +27,7 @@ echo # For local development (using localhost)>> .env
 echo REACT_APP_WEBSOCKET_URL=ws://localhost:9001>> .env
 echo.>> .env
 echo # For connecting to Raspberry Pi (uncomment the line below and comment the localhost line above)>> .env
-echo #REACT_APP_WEBSOCKET_URL=ws://192.168.1.11:9001>> .env
+echo #REACT_APP_WEBSOCKET_URL=ws://192.168.1.12:9001>> .env
 cd ..
 echo.
 echo ✅ Configuration updated for LOCAL setup!
@@ -48,14 +48,14 @@ echo # For local development (using localhost)>> .env
 echo #REACT_APP_WEBSOCKET_URL=ws://localhost:9001>> .env
 echo.>> .env
 echo # For connecting to Raspberry Pi (uncomment the line below and comment the localhost line above)>> .env
-echo REACT_APP_WEBSOCKET_URL=ws://192.168.1.11:9001>> .env
+echo REACT_APP_WEBSOCKET_URL=ws://192.168.1.12:9001>> .env
 cd ..
 echo.
 echo ✅ Configuration updated for RASPBERRY PI setup!
 echo.
 echo To start the system:
 echo 1. Make sure Pi is running: python3 start_noise_system.py
-echo 2. Run locally: python fake_esp32.py --broker 192.168.1.11
+echo 2. Run locally: python fake_esp32.py --broker 192.168.1.12
 echo 3. Run: cd mqtt-noise-map-ui ^&^& npm start
 goto end
 

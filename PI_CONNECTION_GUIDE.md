@@ -26,7 +26,7 @@ connect_to_pi.bat
 Edit `config.ini`:
 ```ini
 [pi_connection]
-pi_ip = 192.168.1.12  # Change to your Pi's IP
+pi_ip = 192.168.1.12  # Your Pi's IP address
 ```
 
 #### Step 2: On Raspberry Pi
