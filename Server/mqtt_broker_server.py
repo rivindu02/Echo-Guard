@@ -43,7 +43,7 @@ logger = logging.getLogger(__name__)
 class MQTTBrokerServer:
     def __init__(self):
         # Configuration
-        self.mqtt_port = 1884
+        self.mqtt_port = 1883
         self.websocket_port = 9001
         self.broker_host = "localhost"
         
@@ -291,12 +291,12 @@ class MQTTBrokerServer:
         """Start the WebSocket server"""
         server = await websockets.serve(
             self.websocket_handler,
-            "localhost",
+            "0.0.0.0",
             self.websocket_port,
             ping_interval=20,
             ping_timeout=10
         )
-        logger.info(f"🌐 WebSocket server listening on ws://localhost:{self.websocket_port}")
+        logger.info(f"🌐 WebSocket server listening on ws://0.0.0.0:{self.websocket_port}")
         return server
     
     def cleanup_old_data(self):
@@ -343,7 +343,7 @@ class MQTTBrokerServer:
         websocket_server = await self.start_websocket_server()
         
         logger.info("🚀 MQTT Broker Server started successfully!")
-        logger.info(f"📡 WebSocket URL: ws://localhost:{self.websocket_port}")
+        logger.info(f"📡 WebSocket URL: ws://0.0.0.0:{self.websocket_port}")
         logger.info(f"🔌 MQTT connection: {self.broker_host}:1883")
         logger.info("📍 Ready to receive ESP32 sensor data and serve React UI")
         

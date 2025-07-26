@@ -107,13 +107,13 @@ class NoiseMapSystem:
             # Test if it's actually listening
             test_result = subprocess.run(['netstat', '-tln'], 
                                        capture_output=True, text=True)
-            if ':1883' in test_result.stdout:
-                logger.info("✅ Mosquitto MQTT broker started and listening on port 1883")
+            if ':1883' in test_result.stdout and ':9001' in test_result.stdout:
+                logger.info("✅ Mosquitto MQTT broker started and listening")
             else:
-                logger.warning("⚠️ Mosquitto started but not listening on port 1883")
+                logger.warning("⚠️ Mosquitto started but may not be listening")
                 logger.info("Port status:")
                 for line in test_result.stdout.split('\n'):
-                    if '1883' in line:
+                    if '1883' in line or '9001' in line:
                         logger.info(f"  {line}")
                 
                 # Try to get more info about what went wrong
@@ -235,7 +235,10 @@ class NoiseMapSystem:
         """Start the complete noise mapping system"""
         logger.info("🚀 Starting Raspberry Pi Noise Mapping System...")
         
-        # Give some time between starts
+        # IMPORTANT: Start services in the right order to avoid port conflicts
+        # Mosquitto provides MQTT (1883) but NOT WebSocket (9001)
+        # mqtt_broker_server.py provides WebSocket (9001)
+        
         services = [
             ("Mosquitto MQTT Broker", self.start_mosquitto_broker),
             ("Python MQTT Broker Server", self.start_broker_server),
@@ -246,9 +249,13 @@ class NoiseMapSystem:
         for service_name, start_func in services:
             logger.info(f"Starting {service_name}...")
             if start_func():
-                time.sleep(2)  # Wait 2 seconds between services
+                time.sleep(3)  # Wait longer between services to avoid conflicts
             else:
                 logger.warning(f"⚠️ Failed to start {service_name}")
+                # Don't continue if critical services fail
+                if service_name in ["Mosquitto MQTT Broker", "Python MQTT Broker Server"]:
+                    logger.error("❌ Critical service failed, stopping startup")
+                    return False
         
         # Start process monitoring
         monitor_thread = threading.Thread(target=self.monitor_processes, daemon=True)
@@ -257,12 +264,13 @@ class NoiseMapSystem:
         logger.info("🎉 Noise Mapping System started successfully!")
         logger.info("")
         logger.info("📍 System Endpoints:")
-        logger.info("   🦟 MQTT Broker (TCP): localhost:1883")
-        logger.info("   🌐 WebSocket Server: ws://localhost:9001")
+        logger.info("   🦟 MQTT Broker (TCP): 192.168.1.11:1883")
+        logger.info("   🌐 WebSocket Server: ws://192.168.1.11:9001")
         logger.info("   📊 Data Processing: Active")
         logger.info("")
-        logger.info("📱 React UI Configuration:")
-        logger.info("   Update mqttService.js to use: ws://localhost:9001")
+        logger.info("📱 To connect from Windows:")
+        logger.info("   ESP32: python fake_esp32.py --broker 192.168.1.11")
+        logger.info("   React UI: REACT_APP_WEBSOCKET_URL=ws://192.168.1.11:9001")
         logger.info("")
         logger.info("🛑 Press Ctrl+C to stop the system")
         
