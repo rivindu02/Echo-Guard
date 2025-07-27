@@ -451,3 +451,11 @@
 2025-07-26 22:26:08,417 - WARNING - ❌ Disconnected from MQTT broker: 7
 2025-07-26 22:26:09,521 - INFO - ✅ Connected to MQTT broker successfully
 2025-07-26 22:31:18,749 - INFO - 🛑 Received shutdown signal
+2025-07-27 20:31:13,883 - INFO - 📋 Current Configuration:
+2025-07-27 20:31:13,887 - INFO -    Pi IP: 172.20.10.2
+2025-07-27 20:31:13,888 - INFO -    Local IP: localhost
+2025-07-27 20:31:13,888 - INFO -    MQTT Port: 1883
+2025-07-27 20:31:13,889 - INFO -    WebSocket Port: 9001
+2025-07-27 20:31:13,889 - INFO -    Local Mode: False
+2025-07-27 20:31:13,890 - INFO -    Fake ESP32 Devices: 5
+2025-07-27 20:31:13,890 - INFO -    Publish Interval: 3s

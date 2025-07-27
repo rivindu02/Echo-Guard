@@ -22,6 +22,7 @@ import threading
 import time
 from collections import defaultdict
 import os
+from config_loader import get_config
 
 # Set console encoding for Windows
 if sys.platform == "win32":
@@ -41,11 +42,20 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 class MQTTBrokerServer:
-    def __init__(self, websocket_host="localhost", broker_host="localhost"):
-        # Configuration
-        self.mqtt_port = 1883
-        self.websocket_port = 9001
-        self.websocket_host = websocket_host  # Allow external connections
+    def __init__(self, websocket_host=None, broker_host=None):
+        # Load configuration
+        self.config = get_config()
+        self.config.log_configuration()
+        
+        # Configuration - use config file values if not overridden
+        if websocket_host is None:
+            websocket_host = "0.0.0.0"  # Listen on all interfaces
+        if broker_host is None:
+            broker_host = self.config.get_pi_ip()
+            
+        self.mqtt_port = self.config.get_mqtt_port()
+        self.websocket_port = self.config.get_websocket_port()
+        self.websocket_host = websocket_host
         self.broker_host = broker_host
         
         # Data storage
@@ -370,12 +380,12 @@ async def main():
         description='MQTT Broker Server with WebSocket support'
     )
     parser.add_argument(
-        '--websocket-host', default='localhost',
-        help='WebSocket server host (default: localhost)'
+        '--websocket-host', default=None,
+        help='WebSocket server host (default: 0.0.0.0 for Pi, localhost for local)'
     )
     parser.add_argument(
-        '--broker-host', default='localhost',
-        help='MQTT broker host to connect to (default: localhost)'
+        '--broker-host', default=None,
+        help='MQTT broker host to connect to (default: from config.ini)'
     )
     args = parser.parse_args()
     

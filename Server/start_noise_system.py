@@ -11,6 +11,7 @@ import signal
 import sys
 import logging
 import os
+from config_loader import get_config
 
 # Set console encoding for Windows
 if sys.platform == "win32":
@@ -33,6 +34,10 @@ class NoiseMapSystem:
     def __init__(self):
         self.processes = []
         self.running = True
+        
+        # Load configuration
+        self.config = get_config()
+        self.config.log_configuration()
         
     def start_mosquitto_broker(self):
         """Start Mosquitto MQTT broker"""
@@ -137,11 +142,17 @@ class NoiseMapSystem:
         try:
             logger.info("🌐 Starting Python MQTT broker server...")
             
-            # Use the correct path - mqtt_broker_server.py is in the same directory
+            # Use configuration to determine connection settings
+            websocket_host = "0.0.0.0"  # Listen on all interfaces for Pi
+            broker_host = self.config.get_pi_ip()
+            
+            logger.info(f"📡 WebSocket server will listen on: {websocket_host}:{self.config.get_websocket_port()}")
+            logger.info(f"📡 MQTT broker connection: {broker_host}:{self.config.get_mqtt_port()}")
+            
             process = subprocess.Popen([
                 'python3', 'mqtt_broker_server.py',
-                '--websocket-host', '0.0.0.0',  # Listen on all interfaces
-                '--broker-host', 'localhost'     # Connect to local Mosquitto
+                '--websocket-host', websocket_host,
+                '--broker-host', broker_host
             ], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
             
             self.processes.append(('broker_server', process))
@@ -264,19 +275,26 @@ class NoiseMapSystem:
         monitor_thread = threading.Thread(target=self.monitor_processes, daemon=True)
         monitor_thread.start()
         
-        # Pi's IP address
-        pi_ip = "192.168.1.12"
+        # Get connection info from config
+        pi_ip = self.config.get_pi_ip()
+        mqtt_port = self.config.get_mqtt_port()
+        websocket_port = self.config.get_websocket_port()
         
         logger.info("🎉 Noise Mapping System started successfully!")
         logger.info("")
         logger.info("📍 System Endpoints:")
-        logger.info(f"   🦟 MQTT Broker (TCP): {pi_ip}:1883")
-        logger.info(f"   🌐 WebSocket Server: ws://{pi_ip}:9001")
+        logger.info(f"   🦟 MQTT Broker (TCP): {pi_ip}:{mqtt_port}")
+        logger.info(f"   🌐 WebSocket Server: ws://{pi_ip}:{websocket_port}")
         logger.info("   📊 Data Processing: Active")
         logger.info("")
         logger.info("📱 To connect from Windows:")
         logger.info(f"   ESP32: python fake_esp32.py --broker {pi_ip}")
-        logger.info(f"   React UI: REACT_APP_WEBSOCKET_URL=ws://{pi_ip}:9001")
+        logger.info(f"   React UI: REACT_APP_WEBSOCKET_URL=ws://{pi_ip}:{websocket_port}")
+        logger.info("")
+        
+        # Show config file location for easy updates
+        logger.info(f"⚙️ Configuration loaded from: {self.config.config_file_path}")
+        logger.info("   Edit config.ini to change IP addresses")
         logger.info("")
         logger.info("🛑 Press Ctrl+C to stop the system")
         
