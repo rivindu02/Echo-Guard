@@ -18,8 +18,28 @@ logger = logging.getLogger(__name__)
 
 # MQTT client for forwarding messages
 mqtt_client = mqtt.Client()
-mqtt_client.connect('localhost', 1883, 60)
-mqtt_client.loop_start()
+
+# MQTT connection handling
+def on_connect(client, userdata, flags, rc):
+    if rc == 0:
+        logger.info("✅ Connected to MQTT broker")
+    else:
+        logger.error(f"❌ Failed to connect to MQTT broker: {rc}")
+
+def on_disconnect(client, userdata, rc):
+    if rc != 0:
+        logger.warning("⚠️ Unexpected MQTT disconnection, attempting to reconnect...")
+
+mqtt_client.on_connect = on_connect
+mqtt_client.on_disconnect = on_disconnect
+
+# Try to connect to MQTT broker
+try:
+    mqtt_client.connect('172.20.10.2', 1883, 60)  # Connect to Pi's MQTT broker
+    mqtt_client.loop_start()
+except Exception as e:
+    logger.error(f"❌ Failed to connect to MQTT broker: {e}")
+    logger.info("🔄 Will retry connection when needed...")
 
 async def handle_websocket(websocket, path):
     try:

@@ -27,7 +27,19 @@ class DirectMQTTService {
           clientId: CONFIG.CLIENT_ID,
           clean: true,
           protocol: 'ws',
-          reconnectPeriod: 5000
+          reconnectPeriod: 5000,
+          connectTimeout: 30000,
+          // Add MQTT protocol level
+          protocolVersion: 4,
+          // Add keep alive
+          keepalive: 60,
+          // Add will message for clean disconnect
+          will: {
+            topic: 'noise/clients',
+            payload: JSON.stringify({ id: CONFIG.CLIENT_ID, status: 'disconnected' }),
+            qos: 0,
+            retain: false
+          }
         });
 
         this.client.on('connect', () => {
