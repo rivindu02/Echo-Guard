@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Super Simple WebSocket server that forwards MQTT messages
+Fixed WebSocket server that properly handles MQTT messages
 """
 
 import asyncio
@@ -8,13 +8,15 @@ import websockets
 import paho.mqtt.client as mqtt
 import json
 import logging
+import threading
+from queue import Queue
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 # Global variables
 connected_clients = set()
-mqtt_client = None
+message_queue = Queue()
 
 def on_mqtt_connect(client, userdata, flags, rc):
     if rc == 0:
@@ -25,40 +27,44 @@ def on_mqtt_connect(client, userdata, flags, rc):
 
 def on_mqtt_message(client, userdata, msg):
     try:
-        # Forward message to all connected WebSocket clients
+        # Put message in queue instead of directly sending
         message = {
             "topic": msg.topic,
-            "payload": json.loads(msg.payload.decode()),
-            "timestamp": msg.timestamp if hasattr(msg, 'timestamp') else None
+            "payload": json.loads(msg.payload.decode())
         }
+        message_queue.put(message)
+        logger.info(f"📨 Queued message: {msg.topic}")
         
-        # Send to all connected clients using threadsafe call
-        if connected_clients:
-            # Use call_soon_threadsafe to schedule the coroutine
-            loop = asyncio.get_event_loop()
-            loop.call_soon_threadsafe(
-                lambda: asyncio.create_task(broadcast_to_clients(json.dumps(message)))
-            )
-            
     except Exception as e:
         logger.error(f"Error processing MQTT message: {e}")
 
-async def broadcast_to_clients(message):
-    if connected_clients:
-        # Create a copy of the set to avoid modification during iteration
-        clients_copy = connected_clients.copy()
-        await asyncio.gather(
-            *[send_to_client(client, message) for client in clients_copy],
-            return_exceptions=True
-        )
-
-async def send_to_client(client, message):
-    try:
-        await client.send(message)
-    except Exception as e:
-        logger.error(f"Failed to send to client: {e}")
-        # Remove disconnected client
-        connected_clients.discard(client)
+async def message_forwarder():
+    """Forwards messages from queue to WebSocket clients"""
+    while True:
+        try:
+            # Check if there are messages to send
+            if not message_queue.empty() and connected_clients:
+                message = message_queue.get_nowait()
+                message_json = json.dumps(message)
+                
+                # Send to all connected clients
+                disconnected_clients = []
+                for client in connected_clients.copy():
+                    try:
+                        await client.send(message_json)
+                        logger.info(f"📤 Sent to client: {message['topic']}")
+                    except Exception as e:
+                        logger.error(f"Failed to send to client: {e}")
+                        disconnected_clients.append(client)
+                
+                # Remove disconnected clients
+                for client in disconnected_clients:
+                    connected_clients.discard(client)
+                    
+        except Exception as e:
+            logger.error(f"Error in message forwarder: {e}")
+        
+        await asyncio.sleep(0.1)  # Small delay to prevent busy waiting
 
 async def handle_client(websocket, path):
     logger.info(f"🌐 New client connected from {websocket.remote_address}")
@@ -82,8 +88,8 @@ async def handle_client(websocket, path):
                     "type": "echo",
                     "data": data
                 }))
-            except:
-                pass  # Ignore parsing errors
+            except Exception as e:
+                logger.error(f"Error handling client message: {e}")
                 
     except websockets.exceptions.ConnectionClosed:
         logger.info("Client disconnected")
@@ -91,9 +97,7 @@ async def handle_client(websocket, path):
         connected_clients.discard(websocket)
 
 async def main():
-    global mqtt_client
-    
-    # Setup MQTT client
+    # Setup MQTT client in a separate thread
     mqtt_client = mqtt.Client()
     mqtt_client.on_connect = on_mqtt_connect
     mqtt_client.on_message = on_mqtt_message
@@ -104,6 +108,9 @@ async def main():
         logger.info("🦟 MQTT client started")
     except Exception as e:
         logger.error(f"❌ Failed to connect to MQTT: {e}")
+    
+    # Start message forwarder
+    asyncio.create_task(message_forwarder())
     
     # Start WebSocket server
     logger.info("🚀 Starting WebSocket server on port 9001...")
@@ -117,6 +124,3 @@ if __name__ == "__main__":
         asyncio.run(main())
     except KeyboardInterrupt:
         logger.info("Shutting down...")
-        if mqtt_client:
-            mqtt_client.loop_stop()
-            mqtt_client.disconnect()
