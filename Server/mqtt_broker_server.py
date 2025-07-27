@@ -289,28 +289,27 @@ class MQTTBrokerServer:
         logger.info(f"🔌 MQTT client connecting to {self.broker_host}:1883")
     
     async def start_websocket_server(self):
-        """Start the WebSocket server with CORS support for browsers"""
-        # Add CORS support for browser connections
-        async def websocket_handler_with_cors(websocket, path):
-            # Set CORS headers for browser compatibility
-            websocket.response_headers = [
-                ('Access-Control-Allow-Origin', '*'),
-                ('Access-Control-Allow-Methods', 'GET, POST, OPTIONS'),
-                ('Access-Control-Allow-Headers', 'Content-Type'),
-            ]
-            return await self.websocket_handler(websocket, path)
+        """Start the WebSocket server with browser compatibility"""
+        
+        # Custom process_request to handle browser connections properly
+        def process_request(path, request_headers):
+            """Process WebSocket request headers for browser compatibility"""
+            # Accept all origins for browser connections
+            return None  # Return None to accept the connection
         
         server = await websockets.serve(
-            websocket_handler_with_cors,
+            self.websocket_handler,
             self.websocket_host,
             self.websocket_port,
             ping_interval=20,
             ping_timeout=10,
-            # Allow all origins for browser compatibility
-            origins=None
+            # Browser compatibility settings
+            process_request=process_request,
+            origins=None,  # Allow all origins
+            compression=None  # Disable compression for compatibility
         )
         logger.info(f"🌐 WebSocket server listening on ws://{self.websocket_host}:{self.websocket_port}")
-        logger.info("🌐 CORS enabled for browser connections")
+        logger.info("🌐 Browser compatibility enabled")
         return server
     
     def cleanup_old_data(self):
