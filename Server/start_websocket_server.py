@@ -43,18 +43,23 @@ except Exception as e:
 
 async def handle_websocket(websocket, path):
     try:
-        logger.info(f"🌐 New WebSocket connection from {websocket.remote_address}")
+        remote_address = websocket.remote_address
+        logger.info(f"🌐 New WebSocket connection from {remote_address}")
         
-        # Set up MQTT message callback
+        # Set up MQTT message callback for this specific connection
         def on_mqtt_message(client, userdata, msg):
-            asyncio.create_task(websocket.send(json.dumps({
-                'type': 'mqtt_message',
-                'topic': msg.topic,
-                'payload': json.loads(msg.payload.decode())
-            })))
+            try:
+                # Forward raw MQTT message without wrapping
+                asyncio.create_task(websocket.send(msg.payload))
+            except Exception as e:
+                logger.error(f"Error sending message to {remote_address}: {e}")
         
+        # Store previous handler if any
+        previous_handler = mqtt_client.on_message
         mqtt_client.on_message = on_mqtt_message
-        mqtt_client.subscribe('noise/#')
+        
+        # Subscribe to all noise topics
+        mqtt_client.subscribe('noise/#', qos=0)
         
         # Handle incoming WebSocket messages
         async for message in websocket:

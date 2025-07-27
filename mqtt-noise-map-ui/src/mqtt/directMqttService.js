@@ -1,9 +1,25 @@
 import mqtt from 'mqtt';
 
 const CONFIG = {
+  // Use WSS for production, WS for development
   MQTT_URL: 'ws://172.20.10.2:9001',
   CLIENT_ID: `noise_ui_${Math.random().toString(16).substr(2, 8)}`,
-  TOPICS: ['noise/#']
+  TOPICS: ['noise/#'],
+  // MQTT protocol configuration
+  CONNECT_OPTIONS: {
+    clientId: `noise_ui_${Math.random().toString(16).substr(2, 8)}`,
+    clean: true,
+    keepalive: 30,
+    protocolVersion: 4,
+    reconnectPeriod: 1000,
+    connectTimeout: 30 * 1000,
+    will: {
+      topic: 'noise/clients',
+      payload: JSON.stringify({ status: 'disconnected' }),
+      qos: 0,
+      retain: false
+    }
+  }
 };
 
 class DirectMQTTService {
@@ -23,23 +39,11 @@ class DirectMQTTService {
         
         this.handlers = { message: onMessage, status: onStatus };
         
+        // Create MQTT client with configured options
         this.client = mqtt.connect(CONFIG.MQTT_URL, {
-          clientId: CONFIG.CLIENT_ID,
-          clean: true,
-          protocol: 'ws',
-          reconnectPeriod: 5000,
-          connectTimeout: 30000,
-          // Add MQTT protocol level
-          protocolVersion: 4,
-          // Add keep alive
-          keepalive: 60,
-          // Add will message for clean disconnect
-          will: {
-            topic: 'noise/clients',
-            payload: JSON.stringify({ id: CONFIG.CLIENT_ID, status: 'disconnected' }),
-            qos: 0,
-            retain: false
-          }
+          ...CONFIG.CONNECT_OPTIONS,
+          // Override clientId to ensure uniqueness
+          clientId: `noise_ui_${Math.random().toString(16).substr(2, 8)}`
         });
 
         this.client.on('connect', () => {
