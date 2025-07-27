@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import NoiseMap from './components/NoiseMap';
-import mqttService from './mqtt/directMqttService';
+import webSocketService from './mqtt/simpleWebSocketService';
 import logoImage from './components/Smart Noise Monitoring System.png';
 import './App.css';
 
@@ -132,7 +132,7 @@ function App() {
         setConnectionStatus('connecting');
         showNotification('Connecting to server...', 'info');
         
-        await mqttService.connect(handleMessage, (status) => {
+        await webSocketService.connect(handleMessage, (status) => {
           setConnectionStatus(status);
           if (status === 'connected') {
             showNotification('Connected to server!', 'success');
@@ -153,7 +153,7 @@ function App() {
 
     // Cleanup on unmount
     return () => {
-      mqttService.disconnect();
+      webSocketService.disconnect();
     };
   }, [handleMessage, showNotification]);
 
@@ -162,7 +162,7 @@ function App() {
     if (!settings.autoRefresh) return;
 
     const interval = setInterval(() => {
-      const status = mqttService.getStatus();
+      const status = webSocketService.getStatus();
       setConnectionStatus(status);
     }, 5000);
 
