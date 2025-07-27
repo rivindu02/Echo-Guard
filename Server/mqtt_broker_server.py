@@ -41,11 +41,11 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 class MQTTBrokerServer:
-    def __init__(self, websocket_host="0.0.0.0", broker_host="localhost"):
-        # Configuration - 0.0.0.0 allows external connections
-        self.mqtt_port = 1883
+    def __init__(self, websocket_host="localhost", broker_host="localhost"):
+        # Configuration
+        self.mqtt_port = 1884
         self.websocket_port = 9001
-        self.websocket_host = websocket_host  # 0.0.0.0 for external access
+        self.websocket_host = websocket_host  # Allow external connections
         self.broker_host = broker_host
         
         # Data storage
@@ -289,15 +289,28 @@ class MQTTBrokerServer:
         logger.info(f"🔌 MQTT client connecting to {self.broker_host}:1883")
     
     async def start_websocket_server(self):
-        """Start the WebSocket server"""
+        """Start the WebSocket server with CORS support for browsers"""
+        # Add CORS support for browser connections
+        async def websocket_handler_with_cors(websocket, path):
+            # Set CORS headers for browser compatibility
+            websocket.response_headers = [
+                ('Access-Control-Allow-Origin', '*'),
+                ('Access-Control-Allow-Methods', 'GET, POST, OPTIONS'),
+                ('Access-Control-Allow-Headers', 'Content-Type'),
+            ]
+            return await self.websocket_handler(websocket, path)
+        
         server = await websockets.serve(
-            self.websocket_handler,
+            websocket_handler_with_cors,
             self.websocket_host,
             self.websocket_port,
             ping_interval=20,
-            ping_timeout=10
+            ping_timeout=10,
+            # Allow all origins for browser compatibility
+            origins=None
         )
         logger.info(f"🌐 WebSocket server listening on ws://{self.websocket_host}:{self.websocket_port}")
+        logger.info("🌐 CORS enabled for browser connections")
         return server
     
     def cleanup_old_data(self):

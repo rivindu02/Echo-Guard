@@ -137,6 +137,7 @@ class NoiseMapSystem:
         try:
             logger.info("🌐 Starting Python MQTT broker server...")
             
+            # Use the correct path - mqtt_broker_server.py is in the same directory
             process = subprocess.Popen([
                 'python3', 'mqtt_broker_server.py',
                 '--websocket-host', '0.0.0.0',  # Listen on all interfaces
@@ -264,7 +265,7 @@ class NoiseMapSystem:
         monitor_thread.start()
         
         # Pi's IP address
-        pi_ip = "192.168.1.11"
+        pi_ip = "192.168.1.12"
         
         logger.info("🎉 Noise Mapping System started successfully!")
         logger.info("")
