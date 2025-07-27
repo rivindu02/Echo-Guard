@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
-Fixed WebSocket server that properly handles MQTT messages
-Uses Raspberry Pi configuration from config.ini
+Local WebSocket server for development
+Uses localhost MQTT broker and configuration from config.ini
 """
 
 import asyncio
@@ -28,7 +28,7 @@ config = None
 
 def on_mqtt_connect(client, userdata, flags, rc):
     if rc == 0:
-        logger.info("✅ Connected to MQTT broker")
+        logger.info("✅ Connected to local MQTT broker")
         client.subscribe("noise/#")
     else:
         logger.error(f"❌ MQTT connection failed: {rc}")
@@ -82,7 +82,7 @@ async def handle_client(websocket):
         # Send welcome message
         await websocket.send(json.dumps({
             "type": "welcome",
-            "message": "Connected to noise monitoring system"
+            "message": "Connected to local noise monitoring system"
         }))
         
         # Keep connection alive
@@ -100,7 +100,7 @@ async def handle_client(websocket):
                 logger.error(f"Error handling client message: {e}")
                 
     except websockets.exceptions.ConnectionClosed:
-        logger.info("Client disconnected")
+        logger.info("🔌 Client disconnected")
     finally:
         connected_clients.discard(websocket)
 
@@ -109,12 +109,12 @@ async def main():
     
     # Load configuration
     config = get_config()
-    pi_ip = config.get_pi_ip()
+    local_ip = config.get_local_ip()
     mqtt_port = config.get_mqtt_port()
     websocket_port = config.get_websocket_port()
     
-    logger.info(f"📋 Pi configuration loaded:")
-    logger.info(f"   MQTT broker: {pi_ip}:{mqtt_port}")
+    logger.info(f"📋 Local configuration loaded:")
+    logger.info(f"   MQTT broker: {local_ip}:{mqtt_port}")
     logger.info(f"   WebSocket server: 0.0.0.0:{websocket_port}")
     
     # Setup MQTT client
@@ -123,25 +123,29 @@ async def main():
     mqtt_client.on_message = on_mqtt_message
     
     try:
-        mqtt_client.connect(pi_ip, mqtt_port, 60)
+        mqtt_client.connect(local_ip, mqtt_port, 60)
         mqtt_client.loop_start()
-        logger.info("🦟 Pi MQTT client started")
+        logger.info("🦟 Local MQTT client started")
     except Exception as e:
-        logger.error(f"❌ Failed to connect to Pi MQTT: {e}")
+        logger.error(f"❌ Failed to connect to local MQTT: {e}")
+        logger.info("💡 Make sure Mosquitto is running locally on port 1883")
+        logger.info("   You can install it with: choco install mosquitto")
+        logger.info("   Or run it manually with: mosquitto -v")
     
     # Start message forwarder
     asyncio.create_task(message_forwarder())
     
     # Start WebSocket server
-    logger.info(f"🚀 Starting Pi WebSocket server on port {websocket_port}...")
+    logger.info(f"🚀 Starting local WebSocket server on port {websocket_port}...")
     
     async with websockets.serve(handle_client, "0.0.0.0", websocket_port, 
                                ping_interval=20, ping_timeout=10):
-        logger.info("✅ Pi WebSocket server running!")
+        logger.info("✅ Local WebSocket server running!")
+        logger.info("🌐 React UI should connect to: ws://localhost:9001")
         await asyncio.Future()  # Run forever
 
 if __name__ == "__main__":
     try:
         asyncio.run(main())
     except KeyboardInterrupt:
-        logger.info("Shutting down...")
+        logger.info("🛑 Local server stopped by user")

@@ -24,26 +24,50 @@ A real-time web dashboard for visualizing environmental noise levels from ESP32 
 
 ## 🚀 Quick Start
 
-### 1. Create React App
+### Configuration for Different Testing Modes
 
+#### For Local Testing (PC only):
 ```bash
-npx create-react-app mqtt-noise-map-ui
-cd mqtt-noise-map-ui
+# Edit .env file:
+REACT_APP_WEBSOCKET_URL=ws://localhost:9001
 ```
 
-### 2. Install Dependencies
-
+#### For Pi Server Mode:
 ```bash
-npm install leaflet react-leaflet mqtt framer-motion recharts
+# Edit .env file (replace with your Pi's IP):
+REACT_APP_WEBSOCKET_URL=ws://192.168.1.100:9001
 ```
 
-### 3. Replace Default Files
+### 1. Install Dependencies
 
-Replace the generated files with the custom ones provided:
-- Copy all files from this project to your React app directory
-- Ensure the folder structure matches the provided structure
+```bash
+npm install
+```
 
-### 4. Configure Environment
+### 2. Configure WebSocket Connection
+
+Edit the `.env` file to match your setup:
+
+#### For Local Testing (PC only):
+```env
+REACT_APP_WEBSOCKET_URL=ws://localhost:9001
+```
+
+#### For Pi Server Mode:
+```env
+# Replace 192.168.1.100 with your Pi's actual IP address
+REACT_APP_WEBSOCKET_URL=ws://192.168.1.100:9001
+```
+
+#### Finding Your Pi's IP Address:
+```bash
+# On Raspberry Pi:
+hostname -I
+# or
+ip addr show wlan0
+```
+
+### 3. Start the Development Server
 
 ```bash
 cp .env.example .env.local

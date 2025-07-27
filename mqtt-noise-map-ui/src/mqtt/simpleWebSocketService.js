@@ -3,7 +3,7 @@
  */
 
 const CONFIG = {
-  WEBSOCKET_URL: 'ws://172.20.10.2:9001',
+  WEBSOCKET_URL: process.env.REACT_APP_WEBSOCKET_URL || 'ws://localhost:9001',
   RECONNECT_DELAY: 3000,
   MAX_RECONNECT_ATTEMPTS: 10
 };
@@ -33,8 +33,12 @@ class SimpleWebSocketService {
           this.reconnectAttempts = 0;
           onStatus?.('connected');
           
-          // Send a simple ping to confirm connection
-          this.ws.send(JSON.stringify({ type: 'ping' }));
+          // Send a simple ping to confirm connection after a short delay
+          setTimeout(() => {
+            if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+              this.ws.send(JSON.stringify({ type: 'ping' }));
+            }
+          }, 100);
           
           resolve();
         };
@@ -106,8 +110,13 @@ class SimpleWebSocketService {
   }
   
   send(data) {
-    if (this.ws && this.isConnected) {
+    if (this.ws && this.isConnected && this.ws.readyState === WebSocket.OPEN) {
       this.ws.send(JSON.stringify(data));
+    } else {
+      console.warn('⚠️ Cannot send message: WebSocket not ready', {
+        connected: this.isConnected,
+        readyState: this.ws?.readyState
+      });
     }
   }
   
