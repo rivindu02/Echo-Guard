@@ -43,7 +43,7 @@ logger = logging.getLogger(__name__)
 class MQTTBrokerServer:
     def __init__(self, websocket_host="localhost", broker_host="localhost"):
         # Configuration
-        self.mqtt_port = 1884
+        self.mqtt_port = 1883
         self.websocket_port = 9001
         self.websocket_host = websocket_host  # Allow external connections
         self.broker_host = broker_host
@@ -289,27 +289,15 @@ class MQTTBrokerServer:
         logger.info(f"🔌 MQTT client connecting to {self.broker_host}:1883")
     
     async def start_websocket_server(self):
-        """Start the WebSocket server with browser compatibility"""
-        
-        # Custom process_request to handle browser connections properly
-        def process_request(path, request_headers):
-            """Process WebSocket request headers for browser compatibility"""
-            # Accept all origins for browser connections
-            return None  # Return None to accept the connection
-        
+        """Start the WebSocket server"""
         server = await websockets.serve(
             self.websocket_handler,
             self.websocket_host,
             self.websocket_port,
             ping_interval=20,
-            ping_timeout=10,
-            # Browser compatibility settings
-            process_request=process_request,
-            origins=None,  # Allow all origins
-            compression=None  # Disable compression for compatibility
+            ping_timeout=10
         )
         logger.info(f"🌐 WebSocket server listening on ws://{self.websocket_host}:{self.websocket_port}")
-        logger.info("🌐 Browser compatibility enabled")
         return server
     
     def cleanup_old_data(self):

@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import NoiseMap from './components/NoiseMap';
-import webSocketMQTTService from './mqtt/webSocketMqttService';
+import FallbackHTTPService from './mqtt/fallbackHttpService';
 import logoImage from './components/Smart Noise Monitoring System.png';
 import './App.css';
 
@@ -22,6 +22,10 @@ function App() {
     maxNoiseLevel: 0,
   });
   const [notifications, setNotifications] = useState([]);
+  const [connectionInfo, setConnectionInfo] = useState(null);
+
+  // Initialize fallback service
+  const [fallbackService] = useState(() => new FallbackHTTPService());
 
   // Show notification function
   const showNotification = useCallback((message, type = 'info') => {
@@ -40,61 +44,55 @@ function App() {
     }, 5000);
   }, []);
 
-  // MQTT message handler
-  const handleMessage = useCallback((payload, messageType) => {
+  // MQTT message handler - updated for fallback service
+  const handleMessage = useCallback((payload) => {
     try {
-      // Handle different message types from WebSocket service
-      if (messageType === 'sensor') {
-        // Validate payload structure
-        if (!payload.device_id || payload.db === undefined || !payload.lat || !payload.lon) {
-          console.warn('Invalid sensor payload:', payload);
-          return;
-        }
+      // The fallback service normalizes data format, so payload is already structured
+      if (!payload.device_id || payload.db === undefined || !payload.lat || !payload.lon) {
+        console.warn('Invalid sensor payload:', payload);
+        return;
+      }
 
-        const newReading = {
-          ...payload,
-          timestamp: payload.timestamp || Date.now(),
-          db: parseFloat(payload.db),
-          lat: parseFloat(payload.lat),
-          lon: parseFloat(payload.lon),
-        };
+      const newReading = {
+        ...payload,
+        timestamp: payload.timestamp || Date.now(),
+        db: parseFloat(payload.db),
+        lat: parseFloat(payload.lat),
+        lon: parseFloat(payload.lon),
+        method: payload.method || 'unknown'
+      };
 
-        // Update sensor data
-        setSensorData(prevData => {
-          const existingIndex = prevData.findIndex(sensor => sensor.device_id === newReading.device_id);
-          let newData;
-          
-          if (existingIndex >= 0) {
-            // Update existing sensor
-            newData = [...prevData];
-            newData[existingIndex] = { ...newData[existingIndex], ...newReading };
-          } else {
-            // Add new sensor
-            newData = [...prevData, newReading];
-            if (settings.showNotifications) {
-              showNotification(`New sensor connected: ${newReading.device_id}`, 'info');
-            }
+      // Update sensor data
+      setSensorData(prevData => {
+        const existingIndex = prevData.findIndex(sensor => sensor.device_id === newReading.device_id);
+        let newData;
+        
+        if (existingIndex >= 0) {
+          // Update existing sensor
+          newData = [...prevData];
+          newData[existingIndex] = { ...newData[existingIndex], ...newReading };
+        } else {
+          // Add new sensor
+          newData = [...prevData, newReading];
+          if (settings.showNotifications) {
+            showNotification(`New sensor connected: ${newReading.device_id} (${newReading.method})`, 'info');
           }
-
-          // Update statistics
-          updateStats(newData);
-          
-          return newData;
-        });
-
-        // Check for noise level alerts
-        if (newReading.db > 85 && settings.showNotifications) {
-          showNotification(`High noise level detected: ${newReading.db} dB at ${newReading.device_id}`, 'warning');
-          setNotificationCount(prev => prev + 1);
         }
-      } else if (messageType === 'interpolated') {
-        // Handle interpolated data (noise map overlay)
-        console.log('📈 Received interpolated data:', payload);
-        // This will be handled by the NoiseMap component
+
+        // Update statistics
+        updateStats(newData);
+        
+        return newData;
+      });
+
+      // Check for noise level alerts
+      if (newReading.db > 85 && settings.showNotifications) {
+        showNotification(`High noise level detected: ${newReading.db} dB at ${newReading.device_id}`, 'warning');
+        setNotificationCount(prev => prev + 1);
       }
 
     } catch (error) {
-      console.error('Error handling WebSocket message:', error);
+      console.error('Error handling message:', error);
       showNotification('Error processing sensor data', 'error');
     }
   }, [settings.showNotifications, showNotification]);
@@ -124,19 +122,26 @@ function App() {
     });
   };
 
-  // Initialize WebSocket connection
+  // Initialize Fallback Connection (WebSocket with HTTP fallback)
   useEffect(() => {
     const initConnection = async () => {
       try {
         setConnectionStatus('connecting');
-        showNotification('Connecting to WebSocket server...', 'info');
+        showNotification('Connecting to sensors (WebSocket + HTTP fallback)...', 'info');
         
-        await webSocketMQTTService.connect(handleMessage, (status) => {
+        await fallbackService.connect(handleMessage, (status) => {
           setConnectionStatus(status);
+          
+          // Update connection info
+          const info = fallbackService.getConnectionInfo();
+          setConnectionInfo(info);
+          
           if (status === 'connected') {
-            showNotification('Connected to WebSocket server!', 'success');
+            showNotification(`Connected via ${info.method}!`, 'success');
+          } else if (status === 'reconnecting') {
+            showNotification(`Reconnecting... (attempt ${info.retryAttempts})`, 'warning');
           } else if (status === 'error') {
-            showNotification('Failed to connect to WebSocket server', 'error');
+            showNotification('All connection methods failed', 'error');
           }
         });
       } catch (error) {
@@ -150,21 +155,22 @@ function App() {
 
     // Cleanup on unmount
     return () => {
-      webSocketMQTTService.disconnect();
+      fallbackService.disconnect();
     };
-  }, [handleMessage, showNotification]);
+  }, [handleMessage, showNotification, fallbackService]);
 
-  // Auto-refresh connection status
+  // Auto-refresh connection status and info
   useEffect(() => {
     if (!settings.autoRefresh) return;
 
     const interval = setInterval(() => {
-      const status = webSocketMQTTService.getStatus();
-      setConnectionStatus(status);
+      const info = fallbackService.getConnectionInfo();
+      setConnectionInfo(info);
+      setConnectionStatus(info.status);
     }, 5000);
 
     return () => clearInterval(interval);
-  }, [settings.autoRefresh]);
+  }, [settings.autoRefresh, fallbackService]);
 
   const handleSettingsToggle = (setting) => {
     setSettings(prev => ({
@@ -203,7 +209,14 @@ function App() {
           {/* Connection Status */}
           <div className={`connection-indicator status-${getConnectionStatusClass()}`}>
             <div className="connection-pulse"></div>
-            <span className="connection-text">{connectionStatus}</span>
+            <span className="connection-text">
+              {connectionStatus}
+              {connectionInfo && connectionInfo.method && (
+                <small style={{ display: 'block', fontSize: '0.7em', opacity: 0.8 }}>
+                  via {connectionInfo.method}
+                </small>
+              )}
+            </span>
           </div>
 
           {/* Action Buttons */}
@@ -293,6 +306,22 @@ function App() {
                     {connectionStatus.toUpperCase()}
                   </span>
                 </div>
+                {connectionInfo && connectionInfo.method && (
+                  <div className="status-row">
+                    <span>Method:</span>
+                    <span className="text-info">
+                      {connectionInfo.method.toUpperCase()}
+                    </span>
+                  </div>
+                )}
+                {connectionInfo && connectionInfo.retryAttempts > 0 && (
+                  <div className="status-row">
+                    <span>Retry Attempts:</span>
+                    <span className="text-warning">
+                      {connectionInfo.retryAttempts}
+                    </span>
+                  </div>
+                )}
                 <div className="status-row">
                   <span>Total Sensors:</span>
                   <span>{appStats.totalSensors}</span>
