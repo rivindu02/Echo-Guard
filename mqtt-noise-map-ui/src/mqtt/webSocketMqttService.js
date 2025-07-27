@@ -5,13 +5,17 @@
 
 // Configuration
 const CONFIG = {
-  WEBSOCKET_URL: process.env.REACT_APP_WEBSOCKET_URL || 'ws://localhost:9001',
+  // WebSocket URL with MQTT protocol path for Mosquitto
+  WEBSOCKET_URL: 'ws://172.20.10.2:9001/mqtt',
   CLIENT_ID_PREFIX: 'noise_ui_',
-  RECONNECT_DELAY: 3000,
-  MAX_RECONNECT_ATTEMPTS: 5,
+  RECONNECT_DELAY: 5000,
+  MAX_RECONNECT_ATTEMPTS: 10,
   HEARTBEAT_INTERVAL: 30000,
-  CONNECTION_TIMEOUT: 10000 // 10 seconds
+  CONNECTION_TIMEOUT: 30000
 };
+
+// Log the environment variable for debugging
+console.log('Environment variable value:', process.env.REACT_APP_WEBSOCKET_URL);
 
 console.log('🌐 WebSocket MQTT Service Config:', CONFIG);
 
@@ -59,8 +63,21 @@ class WebSocketMQTTService {
           }
         }, CONFIG.CONNECTION_TIMEOUT);
 
-        // Create WebSocket connection
-        this.websocket = new WebSocket(CONFIG.WEBSOCKET_URL);
+        // Create WebSocket connection with error handling
+        try {
+          this.websocket = new WebSocket(CONFIG.WEBSOCKET_URL);
+        } catch (error) {
+          console.error('❌ Failed to create WebSocket:', error);
+          clearTimeout(connectionTimeout);
+          reject(error);
+          return;
+        }
+
+        // Set up error handler first
+        this.websocket.onerror = (error) => {
+          console.error('❌ WebSocket error:', error);
+          this.handleDisconnection();
+        };
 
         // Set up event handlers
         this.websocket.onopen = (event) => {

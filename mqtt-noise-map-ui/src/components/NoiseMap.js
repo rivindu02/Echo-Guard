@@ -220,7 +220,7 @@ const AnimatedMarker = React.memo(({ sensor, index }) => {
 
   return (
     <CircleMarker
-      key={sensor.device_id}
+      key={`marker_${sensor.device_id}_${sensor.timestamp}`}
       center={[sensor.lat, sensor.lon]}
       radius={Math.max(8, Math.min(20, sensor.db / 4))} // Radius based on noise level
       pathOptions={{

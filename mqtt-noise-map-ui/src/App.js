@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import NoiseMap from './components/NoiseMap';
-import webSocketMQTTService from './mqtt/webSocketMqttService';
+import mqttService from './mqtt/directMqttService';
 import logoImage from './components/Smart Noise Monitoring System.png';
 import './App.css';
 
@@ -57,6 +57,7 @@ function App() {
           db: parseFloat(payload.db),
           lat: parseFloat(payload.lat),
           lon: parseFloat(payload.lon),
+          key: `${payload.device_id}_${Date.now()}`, // Add unique key
         };
 
         // Update sensor data
@@ -131,7 +132,7 @@ function App() {
         setConnectionStatus('connecting');
         showNotification('Connecting to server...', 'info');
         
-        await webSocketMQTTService.connect(handleMessage, (status) => {
+        await mqttService.connect(handleMessage, (status) => {
           setConnectionStatus(status);
           if (status === 'connected') {
             showNotification('Connected to server!', 'success');
@@ -152,7 +153,7 @@ function App() {
 
     // Cleanup on unmount
     return () => {
-      webSocketMQTTService.disconnect();
+      mqttService.disconnect();
     };
   }, [handleMessage, showNotification]);
 
@@ -161,7 +162,7 @@ function App() {
     if (!settings.autoRefresh) return;
 
     const interval = setInterval(() => {
-      const status = webSocketMQTTService.getStatus();
+      const status = mqttService.getStatus();
       setConnectionStatus(status);
     }, 5000);
 
