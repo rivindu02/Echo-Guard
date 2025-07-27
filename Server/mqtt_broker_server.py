@@ -298,14 +298,19 @@ class MQTTBrokerServer:
         mqtt_thread.start()
         logger.info(f"🔌 MQTT client connecting to {self.broker_host}:1883")
     
+    async def process_request(self, path, request_headers):
+        """Add CORS headers to allow all origins"""
+        return None
+
     async def start_websocket_server(self):
         """Start the WebSocket server"""
-        server = await websockets.serve(
+        return await websockets.serve(
             self.websocket_handler,
             self.websocket_host,
             self.websocket_port,
             ping_interval=20,
-            ping_timeout=10
+            ping_timeout=10,
+            process_request=self.process_request
         )
         logger.info(f"🌐 WebSocket server listening on ws://{self.websocket_host}:{self.websocket_port}")
         return server

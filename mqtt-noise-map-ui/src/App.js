@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import NoiseMap from './components/NoiseMap';
-import FallbackHTTPService from './mqtt/fallbackHttpService';
+import webSocketMQTTService from './mqtt/webSocketMqttService';
 import logoImage from './components/Smart Noise Monitoring System.png';
 import './App.css';
 
@@ -22,10 +22,6 @@ function App() {
     maxNoiseLevel: 0,
   });
   const [notifications, setNotifications] = useState([]);
-  const [connectionInfo, setConnectionInfo] = useState(null);
-
-  // Initialize fallback service
-  const [fallbackService] = useState(() => new FallbackHTTPService());
 
   // Show notification function
   const showNotification = useCallback((message, type = 'info') => {
@@ -44,55 +40,61 @@ function App() {
     }, 5000);
   }, []);
 
-  // MQTT message handler - updated for fallback service
-  const handleMessage = useCallback((payload) => {
+  // MQTT message handler
+  const handleMessage = useCallback((payload, messageType) => {
     try {
-      // The fallback service normalizes data format, so payload is already structured
-      if (!payload.device_id || payload.db === undefined || !payload.lat || !payload.lon) {
-        console.warn('Invalid sensor payload:', payload);
-        return;
-      }
-
-      const newReading = {
-        ...payload,
-        timestamp: payload.timestamp || Date.now(),
-        db: parseFloat(payload.db),
-        lat: parseFloat(payload.lat),
-        lon: parseFloat(payload.lon),
-        method: payload.method || 'unknown'
-      };
-
-      // Update sensor data
-      setSensorData(prevData => {
-        const existingIndex = prevData.findIndex(sensor => sensor.device_id === newReading.device_id);
-        let newData;
-        
-        if (existingIndex >= 0) {
-          // Update existing sensor
-          newData = [...prevData];
-          newData[existingIndex] = { ...newData[existingIndex], ...newReading };
-        } else {
-          // Add new sensor
-          newData = [...prevData, newReading];
-          if (settings.showNotifications) {
-            showNotification(`New sensor connected: ${newReading.device_id} (${newReading.method})`, 'info');
-          }
+      // Handle different message types from WebSocket service
+      if (messageType === 'sensor') {
+        // Validate payload structure
+        if (!payload.device_id || payload.db === undefined || !payload.lat || !payload.lon) {
+          console.warn('Invalid sensor payload:', payload);
+          return;
         }
 
-        // Update statistics
-        updateStats(newData);
-        
-        return newData;
-      });
+        const newReading = {
+          ...payload,
+          timestamp: payload.timestamp || Date.now(),
+          db: parseFloat(payload.db),
+          lat: parseFloat(payload.lat),
+          lon: parseFloat(payload.lon),
+        };
 
-      // Check for noise level alerts
-      if (newReading.db > 85 && settings.showNotifications) {
-        showNotification(`High noise level detected: ${newReading.db} dB at ${newReading.device_id}`, 'warning');
-        setNotificationCount(prev => prev + 1);
+        // Update sensor data
+        setSensorData(prevData => {
+          const existingIndex = prevData.findIndex(sensor => sensor.device_id === newReading.device_id);
+          let newData;
+          
+          if (existingIndex >= 0) {
+            // Update existing sensor
+            newData = [...prevData];
+            newData[existingIndex] = { ...newData[existingIndex], ...newReading };
+          } else {
+            // Add new sensor
+            newData = [...prevData, newReading];
+            if (settings.showNotifications) {
+              showNotification(`New sensor connected: ${newReading.device_id}`, 'info');
+            }
+          }
+
+          // Update statistics
+          updateStats(newData);
+          
+          return newData;
+        });
+
+        // Check for noise level alerts
+        if (newReading.db > 85 && settings.showNotifications) {
+          showNotification(`High noise level detected: ${newReading.db} dB at ${newReading.device_id}`, 'warning');
+          setNotificationCount(prev => prev + 1);
+        }
+      } else if (messageType === 'interpolated') {
+        // Handle interpolated data (noise map overlay)
+        console.log('📈 Received interpolated data:', payload);
+        // This will be handled by the NoiseMap component
       }
 
     } catch (error) {
-      console.error('Error handling message:', error);
+      console.error('Error handling WebSocket message:', error);
       showNotification('Error processing sensor data', 'error');
     }
   }, [settings.showNotifications, showNotification]);
@@ -122,32 +124,27 @@ function App() {
     });
   };
 
-  // Initialize Fallback Connection (WebSocket with HTTP fallback)
+  // Initialize WebSocket connection
   useEffect(() => {
     const initConnection = async () => {
       try {
         setConnectionStatus('connecting');
-        showNotification('Connecting to sensors (WebSocket + HTTP fallback)...', 'info');
+        showNotification('Connecting to server...', 'info');
         
-        await fallbackService.connect(handleMessage, (status) => {
+        await webSocketMQTTService.connect(handleMessage, (status) => {
           setConnectionStatus(status);
-          
-          // Update connection info
-          const info = fallbackService.getConnectionInfo();
-          setConnectionInfo(info);
-          
           if (status === 'connected') {
-            showNotification(`Connected via ${info.method}!`, 'success');
-          } else if (status === 'reconnecting') {
-            showNotification(`Reconnecting... (attempt ${info.retryAttempts})`, 'warning');
+            showNotification('Connected to server!', 'success');
           } else if (status === 'error') {
-            showNotification('All connection methods failed', 'error');
+            showNotification('Connection failed - Check if the server is running', 'error');
+          } else if (status === 'disconnected') {
+            showNotification('Disconnected from server - Attempting to reconnect...', 'warning');
           }
         });
       } catch (error) {
         console.error('Connection error:', error);
         setConnectionStatus('error');
-        showNotification('Connection failed: ' + error.message, 'error');
+        showNotification('Cannot connect to server. Make sure start_noise_system.py is running on the Pi', 'error');
       }
     };
 
@@ -155,22 +152,21 @@ function App() {
 
     // Cleanup on unmount
     return () => {
-      fallbackService.disconnect();
+      webSocketMQTTService.disconnect();
     };
-  }, [handleMessage, showNotification, fallbackService]);
+  }, [handleMessage, showNotification]);
 
-  // Auto-refresh connection status and info
+  // Auto-refresh connection status
   useEffect(() => {
     if (!settings.autoRefresh) return;
 
     const interval = setInterval(() => {
-      const info = fallbackService.getConnectionInfo();
-      setConnectionInfo(info);
-      setConnectionStatus(info.status);
+      const status = webSocketMQTTService.getStatus();
+      setConnectionStatus(status);
     }, 5000);
 
     return () => clearInterval(interval);
-  }, [settings.autoRefresh, fallbackService]);
+  }, [settings.autoRefresh]);
 
   const handleSettingsToggle = (setting) => {
     setSettings(prev => ({
@@ -209,14 +205,7 @@ function App() {
           {/* Connection Status */}
           <div className={`connection-indicator status-${getConnectionStatusClass()}`}>
             <div className="connection-pulse"></div>
-            <span className="connection-text">
-              {connectionStatus}
-              {connectionInfo && connectionInfo.method && (
-                <small style={{ display: 'block', fontSize: '0.7em', opacity: 0.8 }}>
-                  via {connectionInfo.method}
-                </small>
-              )}
-            </span>
+            <span className="connection-text">{connectionStatus}</span>
           </div>
 
           {/* Action Buttons */}
@@ -306,22 +295,6 @@ function App() {
                     {connectionStatus.toUpperCase()}
                   </span>
                 </div>
-                {connectionInfo && connectionInfo.method && (
-                  <div className="status-row">
-                    <span>Method:</span>
-                    <span className="text-info">
-                      {connectionInfo.method.toUpperCase()}
-                    </span>
-                  </div>
-                )}
-                {connectionInfo && connectionInfo.retryAttempts > 0 && (
-                  <div className="status-row">
-                    <span>Retry Attempts:</span>
-                    <span className="text-warning">
-                      {connectionInfo.retryAttempts}
-                    </span>
-                  </div>
-                )}
                 <div className="status-row">
                   <span>Total Sensors:</span>
                   <span>{appStats.totalSensors}</span>

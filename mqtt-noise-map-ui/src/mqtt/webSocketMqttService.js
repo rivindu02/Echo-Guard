@@ -8,8 +8,9 @@ const CONFIG = {
   WEBSOCKET_URL: process.env.REACT_APP_WEBSOCKET_URL || 'ws://localhost:9001',
   CLIENT_ID_PREFIX: 'noise_ui_',
   RECONNECT_DELAY: 3000,
-  MAX_RECONNECT_ATTEMPTS: 10,
-  HEARTBEAT_INTERVAL: 30000
+  MAX_RECONNECT_ATTEMPTS: 5,
+  HEARTBEAT_INTERVAL: 30000,
+  CONNECTION_TIMEOUT: 10000 // 10 seconds
 };
 
 console.log('🌐 WebSocket MQTT Service Config:', CONFIG);
@@ -48,6 +49,15 @@ class WebSocketMQTTService {
 
         console.log(`🔌 Connecting to WebSocket server: ${CONFIG.WEBSOCKET_URL}`);
         console.log(`📡 Client ID: ${this.clientId}`);
+
+        // Set connection timeout
+        const connectionTimeout = setTimeout(() => {
+          if (this.websocket && this.websocket.readyState !== WebSocket.OPEN) {
+            console.error('❌ WebSocket connection timeout');
+            this.websocket.close();
+            reject(new Error('Connection timeout'));
+          }
+        }, CONFIG.CONNECTION_TIMEOUT);
 
         // Create WebSocket connection
         this.websocket = new WebSocket(CONFIG.WEBSOCKET_URL);
