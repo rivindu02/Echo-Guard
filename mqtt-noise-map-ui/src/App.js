@@ -8,7 +8,6 @@ function App() {
   const [sensorData, setSensorData] = useState([]);
   const [connectionStatus, setConnectionStatus] = useState('disconnected');
   const [settingsOpen, setSettingsOpen] = useState(false);
-  const [notificationCount, setNotificationCount] = useState(0);
   const [settings, setSettings] = useState({
     showNotifications: true,
     autoRefresh: true,
@@ -96,11 +95,7 @@ function App() {
             return newData;
           });
 
-          // Check for noise level alerts
-          if (newReading.db > 85 && settings.showNotifications) {
-            showNotification(`High noise level detected: ${newReading.db} dB at ${newReading.device_id}`, 'warning');
-            setNotificationCount(prev => prev + 1);
-          }
+
         }
       }
 
@@ -221,15 +216,6 @@ function App() {
 
           {/* Action Buttons */}
           <div className="action-buttons">
-            <button 
-              className="action-btn notification-btn"
-              onClick={() => setNotificationCount(0)}
-              title="Notifications"
-            >
-              <span className="btn-icon">🔔</span>
-              {notificationCount > 0 && <span className="notification-dot">{notificationCount}</span>}
-            </button>
-
             <button 
               className="action-btn settings-btn"
               onClick={() => setSettingsOpen(!settingsOpen)}
