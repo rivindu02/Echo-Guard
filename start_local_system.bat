@@ -1,40 +1,42 @@
 @echo off
 echo ========================================
-echo   LOCAL TESTING - Noise Mapping System
+echo   Starting LOCAL Noise Mapping System
 echo ========================================
 echo.
-echo 🏠 LOCAL TESTING MODE (No Hardware Required)
-echo.
-echo This starts a complete local development environment:
-echo ✅ MQTT broker server (localhost:1883 + WebSocket :9001)
-echo ✅ Simulated ESP32 sensors (fake_esp32.py)  
-echo ✅ React UI (localhost:3000)
-echo ✅ Real-time data visualization
-echo.
-echo 📋 Perfect for: Development, testing, demos, learning
-echo 🔗 See LOCAL_TESTING_GUIDE.md for detailed information
+echo This will start the system for local testing with:
+echo - fake_esp32.py (simulated ESP32 devices)
+echo - mqtt_broker_server.py (MQTT broker + WebSocket server)
+echo - React UI (connecting to localhost)
 echo.
 
 REM Configure for local setup
 cd mqtt-noise-map-ui
-echo # Local testing configuration - No central device required> .env.local
-echo # WebSocket connection for Python backend>> .env.local
-echo REACT_APP_WEBSOCKET_URL=ws://localhost:9001>> .env.local
-echo REACT_APP_MQTT_BROKER_URL=ws://localhost:9001>> .env.local
-echo REACT_APP_MQTT_TOPIC_PREFIX=noise>> .env.local
-echo.>> .env.local
-echo # Map configuration for test data>> .env.local
-echo REACT_APP_DEFAULT_MAP_CENTER_LAT=6.7964>> .env.local
-echo REACT_APP_DEFAULT_MAP_CENTER_LON=79.9012>> .env.local
-echo REACT_APP_DEFAULT_MAP_ZOOM=15>> .env.local
-echo.>> .env.local
-echo # Development features>> .env.local
-echo REACT_APP_ENABLE_NOTIFICATIONS=true>> .env.local
-echo REACT_APP_AUTO_REFRESH_INTERVAL=3000>> .env.local
-echo REACT_APP_DEBUG_MODE=true>> .env.local
+echo Configuring for local development...
+echo # WebSocket Configuration> .env
+echo # Switch between these URLs based on your setup:>> .env
+echo # For Raspberry Pi: ws://172.20.10.2:9001>> .env
+echo # For local testing: ws://localhost:9001>> .env
+echo REACT_APP_WEBSOCKET_URL=ws://localhost:9001>> .env
+echo.>> .env
+echo # MQTT Configuration>> .env
+echo REACT_APP_MQTT_TOPIC_PREFIX=noise>> .env
+echo.>> .env
+echo # Map Configuration>> .env
+echo REACT_APP_DEFAULT_MAP_CENTER_LAT=20.5937>> .env
+echo REACT_APP_DEFAULT_MAP_CENTER_LON=78.9629>> .env
+echo REACT_APP_DEFAULT_MAP_ZOOM=5>> .env
+echo.>> .env
+echo # Application Features>> .env
+echo REACT_APP_ENABLE_NOTIFICATIONS=true>> .env
+echo REACT_APP_ENABLE_SOUND_ALERTS=false>> .env
+echo REACT_APP_AUTO_REFRESH_INTERVAL=5000>> .env
+echo.>> .env
+echo # Development>> .env
+echo REACT_APP_DEBUG_MODE=false>> .env
+echo REACT_APP_LOG_LEVEL=info>> .env
 cd ..
 
-echo ✅ Configured for local testing (see mqtt-noise-map-ui/.env.local)
+echo ✅ Configured for local setup!
 echo.
 echo Starting components...
 echo.
@@ -58,26 +60,11 @@ cd ..
 
 echo.
 echo ========================================
-echo   🚀 LOCAL TESTING SYSTEM READY!
+echo   🚀 System Starting!
 echo ========================================
 echo.
-echo The following services are starting:
-echo 1. 🔌 MQTT Broker Server (Python backend)
-echo 2. 📡 ESP32 Simulator (5 virtual sensors)
-echo 3. 🌐 React UI (web interface)
-echo.
-echo 🌍 Access your system at: http://localhost:3000
-echo.
-echo 📊 Expected behavior:
-echo ✅ Map shows sensor markers  
-echo ✅ Connection status: "Connected"
-echo ✅ Noise levels update every 3-5 seconds
-echo ✅ No error messages in browser console
-echo.
-echo 🛑 To stop: Close all terminal windows or press Ctrl+C
-echo 📖 Troubleshooting: See LOCAL_TESTING_GUIDE.md
-echo.
-pause
+echo The following windows should open:
+echo 1. MQTT Broker Server (background service)
 echo 2. ESP32 Simulator (fake sensor data)
 echo 3. React UI (web interface at http://localhost:3000)
 echo.

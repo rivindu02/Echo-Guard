@@ -3,11 +3,6 @@
 Fake ESP32 Noise Sensor Simulator
 Simulates multiple ESP32 devices publishing noise sensor data to MQTT
 Compatible with both the React UI and the mqtt_processor.py
-
-Usage:
-  python fake_esp32.py                              # Use localhost broker
-  python fake_esp32.py --broker 192.168.1.12       # Use Pi broker
-  python fake_esp32.py --config                     # Use config.ini settings
 """
 
 import json
@@ -18,8 +13,20 @@ import socket
 import paho.mqtt.client as mqtt
 from datetime import datetime
 import logging
-import configparser
 import os
+import sys
+
+# Add Server directory to path to import config_loader
+server_dir = os.path.join(os.path.dirname(__file__), 'Server')
+if os.path.exists(server_dir):
+    sys.path.insert(0, server_dir)
+
+try:
+    from config_loader import get_config
+    CONFIG_AVAILABLE = True
+except ImportError:
+    CONFIG_AVAILABLE = False
+    logging.warning("config_loader not available, using default values")
 
 # Configure logging
 logging.basicConfig(
@@ -27,56 +34,6 @@ logging.basicConfig(
     format='%(asctime)s - %(levelname)s - %(message)s'
 )
 logger = logging.getLogger(__name__)
-
-
-def load_config():
-    """Load configuration from config.ini file"""
-    config = configparser.ConfigParser()
-    config_file = 'config.ini'
-    
-    if os.path.exists(config_file):
-        config.read(config_file)
-        logger.info(f"📄 Loaded configuration from {config_file}")
-        return config
-    else:
-        logger.warning(f"⚠️ Configuration file {config_file} not found, using defaults")
-        return None
-
-
-def get_broker_settings(config, use_pi=False):
-    """Get broker settings from config or defaults"""
-    if config:
-        try:
-            if use_pi:
-                section = 'pi_connection'
-                broker_host = config.get(section, 'pi_ip', fallback='192.168.1.12')
-                broker_port = config.getint(section, 'mqtt_port', fallback=1883)
-            else:
-                section = 'local_connection'
-                broker_host = config.get(section, 'local_ip', fallback='localhost')
-                broker_port = config.getint(section, 'mqtt_port', fallback=1883)
-            
-            logger.info(f"🔧 Using {section} settings: {broker_host}:{broker_port}")
-            return broker_host, broker_port
-        except Exception as e:
-            logger.warning(f"⚠️ Error reading config: {e}, using defaults")
-    
-    # Fallback defaults
-    return ('192.168.1.12' if use_pi else 'localhost'), 1883
-
-
-def get_device_settings(config):
-    """Get device simulation settings from config"""
-    if config:
-        try:
-            device_count = config.getint('fake_esp32', 'device_count', fallback=5)
-            publish_interval = config.getint('fake_esp32', 'publish_interval', fallback=3)
-            return device_count, publish_interval
-        except Exception as e:
-            logger.warning(f"⚠️ Error reading device config: {e}, using defaults")
-    
-    return 5, 3
-
 
 class FakeESP32Device:
     def __init__(self, device_id, lat, lon, location_name, mqtt_client):
@@ -204,7 +161,23 @@ class FakeESP32Device:
             self.thread.join()
 
 class ESP32Simulator:
-    def __init__(self, broker_host="localhost", broker_port=1883):
+    def __init__(self, broker_host=None, broker_port=None):
+        # Load configuration if available
+        if CONFIG_AVAILABLE:
+            config = get_config()
+            if broker_host is None:
+                broker_host = config.get_pi_ip()
+            if broker_port is None:
+                broker_port = config.get_mqtt_port()
+            logger.info(f"📋 Using configuration: {broker_host}:{broker_port}")
+        else:
+            # Fallback to defaults
+            if broker_host is None:
+                broker_host = "localhost"
+            if broker_port is None:
+                broker_port = 1883
+            logger.warning("⚠️ Using default configuration (config.ini not found)")
+            
         self.broker_host = broker_host
         self.broker_port = broker_port
         self.client = mqtt.Client()
@@ -232,15 +205,10 @@ class ESP32Simulator:
         logger.info(f"➕ Added device: {device_id} at {location_name}")
     
     def create_sample_devices(self):
-        """Create sample ESP32 devices with hardcoded test locations
-        
-        Note: These are fixed coordinates for testing only.
-        Real ESP32 devices use GPS modules to automatically determine
-        and transmit their actual coordinates.
-        """
-        # Define 5 sensors at fixed test coordinates
+        """Create sample ESP32 devices with realistic locations"""
+        # Define 5 sensors at different realistic locations in India
         device_locations = [
-            ("esp32-001", 6.7964368148947765, 79.90115269520993, "ENTC"),
+            ("esp32-001", 6.7964368148947765, 79.90115269520993, "Entc"),
             ("esp32-002", 6.795970586191689, 79.90096694791089, "Landscape"),
             ("esp32-003", 6.796370339052377, 79.90072317233378, "Sentra-court"),
             ("esp32-004", 6.796500450067444, 79.90172181262183, "CITec"),
@@ -352,70 +320,54 @@ class ESP32Simulator:
 if __name__ == "__main__":
     import argparse
     
+    # Get default values from config if available
+    default_broker = "localhost"
+    default_port = 1883
+    default_interval = 3
+    default_devices = 5
+    
+    if CONFIG_AVAILABLE:
+        try:
+            config = get_config()
+            default_broker = config.get_pi_ip()
+            default_port = config.get_mqtt_port()
+            default_interval = config.get_fake_esp32_publish_interval()
+            default_devices = config.get_fake_esp32_device_count()
+        except Exception as e:
+            logger.warning(f"Could not load config defaults: {e}")
+    
     parser = argparse.ArgumentParser(description='Fake ESP32 Noise Sensor Simulator')
-    parser.add_argument('--broker', help='MQTT broker hostname/IP')
-    parser.add_argument('--port', type=int, help='MQTT broker port')
-    parser.add_argument('--interval', type=int, help='Publishing interval in seconds')
-    parser.add_argument('--devices', type=int, help='Number of devices to simulate')
-    parser.add_argument('--pi', action='store_true', help='Use Pi connection settings from config.ini')
-    parser.add_argument('--config', action='store_true', help='Use all settings from config.ini')
+    parser.add_argument('--broker', default=default_broker, 
+                        help=f'MQTT broker hostname (default: {default_broker})')
+    parser.add_argument('--port', type=int, default=default_port, 
+                        help=f'MQTT broker port (default: {default_port})')
+    parser.add_argument('--interval', type=int, default=default_interval, 
+                        help=f'Publishing interval in seconds (default: {default_interval})')
+    parser.add_argument('--devices', type=int, default=default_devices, 
+                        help=f'Number of devices to simulate (default: {default_devices})')
     
     args = parser.parse_args()
     
-    # Load configuration
-    config = load_config()
-    
-    # Determine broker settings
-    if args.config or args.pi:
-        # Use config file settings
-        broker_host, broker_port = get_broker_settings(config, use_pi=args.pi)
-        if not args.devices and not args.interval:
-            device_count, publish_interval = get_device_settings(config)
-        else:
-            device_count = args.devices or get_device_settings(config)[0]
-            publish_interval = args.interval or get_device_settings(config)[1]
-    else:
-        # Use command line arguments or defaults
-        broker_host = args.broker or 'localhost'
-        broker_port = args.port or 1883
-        device_count = args.devices or 5
-        publish_interval = args.interval or 3
-    
-    # Override with explicit command line arguments
-    if args.broker:
-        broker_host = args.broker
-    if args.port:
-        broker_port = args.port
-    if args.devices:
-        device_count = args.devices
-    if args.interval:
-        publish_interval = args.interval
-    
-    logger.info(f"🎯 Configuration Summary:")
-    logger.info(f"   📡 MQTT Broker: {broker_host}:{broker_port}")
-    logger.info(f"   🔢 Device Count: {device_count}")
-    logger.info(f"   ⏱️  Publish Interval: {publish_interval}s")
-    
     # Create simulator
-    simulator = ESP32Simulator(broker_host, broker_port)
+    simulator = ESP32Simulator(args.broker, args.port)
     
-    # Create devices
-    if device_count <= 5:
+    # Create devices based on --devices argument
+    if args.devices <= 5:
         # Use predefined realistic locations (first N devices)
         simulator.create_sample_devices()
         # Keep only the requested number of devices
-        simulator.devices = simulator.devices[:device_count]
-        logger.info(f"📋 Using first {device_count} predefined device(s)")
+        simulator.devices = simulator.devices[:args.devices]
+        logger.info(f"📋 Using first {args.devices} predefined device(s)")
     else:
         # Generate random devices around a central point for more than 5
-        center_lat, center_lon = 6.7964, 79.9012  # Updated center point
-        for i in range(device_count):
+        center_lat, center_lon = 20.5937, 78.9629
+        for i in range(args.devices):
             device_id = f"esp32-{i+1:03d}"
-            lat = center_lat + random.uniform(-0.01, 0.01)
-            lon = center_lon + random.uniform(-0.01, 0.01)
+            lat = center_lat + random.uniform(-0.05, 0.05)
+            lon = center_lon + random.uniform(-0.05, 0.05)
             location = f"Location {i+1}"
             simulator.add_device(device_id, lat, lon, location)
-        logger.info(f"📋 Generated {device_count} random device(s)")
+        logger.info(f"📋 Generated {args.devices} random device(s)")
     
     # Run simulator
-    simulator.run(publish_interval)
+    simulator.run(args.interval)

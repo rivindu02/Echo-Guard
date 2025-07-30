@@ -220,7 +220,7 @@ const AnimatedMarker = React.memo(({ sensor, index }) => {
 
   return (
     <CircleMarker
-      key={sensor.device_id}
+      key={`marker_${sensor.device_id}_${sensor.timestamp}`}
       center={[sensor.lat, sensor.lon]}
       radius={Math.max(8, Math.min(20, sensor.db / 4))} // Radius based on noise level
       pathOptions={{
@@ -289,8 +289,8 @@ const AnimatedMarker = React.memo(({ sensor, index }) => {
 // Main NoiseMap component
 const NoiseMap = ({ sensorData, connectionStatus, settings }) => {
   const [mapStyle, setMapStyle] = useState('normal');
-  const [mapCenter, setMapCenter] = useState([20.5937, 78.9629]); // India center
-  const [mapZoom, setMapZoom] = useState(5);
+  const [mapCenter, setMapCenter] = useState([6.9271, 79.8612]); // Sri Lanka center
+  const [mapZoom, setMapZoom] = useState(12);
   const [showOverlay, setShowOverlay] = useState(true);
   const [overlayOpacity, setOverlayOpacity] = useState(0.6);
   const [interpolatedData, setInterpolatedData] = useState(null);
@@ -609,7 +609,7 @@ const NoiseMap = ({ sensorData, connectionStatus, settings }) => {
   );
 };
 
-export default React.memo(NoiseMap, (prevProps, nextProps) => {
+const MemoizedNoiseMap = React.memo(NoiseMap, (prevProps, nextProps) => {
   // Custom comparison to prevent unnecessary re-renders
   const sensorDataChanged = JSON.stringify(prevProps.sensorData) !== JSON.stringify(nextProps.sensorData);
   const connectionStatusChanged = prevProps.connectionStatus !== nextProps.connectionStatus;
@@ -618,135 +618,4 @@ export default React.memo(NoiseMap, (prevProps, nextProps) => {
   return !sensorDataChanged && !connectionStatusChanged && !settingsChanged;
 });
 
-// import React, { useState, useEffect, useRef } from 'react';
-// import { MapContainer, TileLayer, CircleMarker, Tooltip } from 'react-leaflet';
-// import NoiseMapOverlay from './NoiseMapOverlay';
-// import mqttService from '../mqtt/mqttService';
-// import 'leaflet/dist/leaflet.css';
-
-// const NoiseMap = () => {
-//   const [sensorData, setSensorData] = useState([]);
-//   const [interpolatedData, setInterpolatedData] = useState(null);
-//   const [showOverlay, setShowOverlay] = useState(true);
-//   const [overlayOpacity, setOverlayOpacity] = useState(0.6);
-//   const mapRef = useRef(null);
-
-//   useEffect(() => {
-//     const handleSensorData = (payload) => {
-//       setSensorData(prev => {
-//         const updated = [...prev];
-//         const existingIndex = updated.findIndex(d => d.device_id === payload.device_id);
-        
-//         if (existingIndex >= 0) {
-//           updated[existingIndex] = payload;
-//         } else {
-//           updated.push(payload);
-//         }
-        
-//         return updated;
-//       });
-//     };
-
-//     const handleInterpolatedData = (payload) => {
-//       setInterpolatedData(payload);
-//     };
-
-//     mqttService.connect(handleSensorData, handleInterpolatedData);
-
-//     return () => {
-//       mqttService.disconnect();
-//     };
-//   }, []);
-
-//   const getMarkerColor = (db) => {
-//     if (db < 40) return '#2dc937';
-//     if (db < 60) return '#99c140';
-//     if (db < 80) return '#e7b416';
-//     return '#cc3232';
-//   };
-
-//   return (
-//     <div style={{ position: 'relative', height: '100vh', width: '100vw' }}>
-//       {/* Map Controls */}
-//       <div style={{
-//         position: 'absolute',
-//         top: 10,
-//         right: 10,
-//         zIndex: 1000,
-//         background: 'rgba(255, 255, 255, 0.9)',
-//         padding: '10px',
-//         borderRadius: '5px',
-//         boxShadow: '0 2px 5px rgba(0,0,0,0.2)'
-//       }}>
-//         <div style={{ marginBottom: '10px' }}>
-//           <label>
-//             <input
-//               type="checkbox"
-//               checked={showOverlay}
-//               onChange={(e) => setShowOverlay(e.target.checked)}
-//             />
-//             {' '}Show Noise Map Overlay
-//           </label>
-//         </div>
-//         <div>
-//           <label>
-//             Opacity: {Math.round(overlayOpacity * 100)}%
-//             <input
-//               type="range"
-//               min="0"
-//               max="1"
-//               step="0.1"
-//               value={overlayOpacity}
-//               onChange={(e) => setOverlayOpacity(parseFloat(e.target.value))}
-//               style={{ width: '100px', marginLeft: '10px' }}
-//             />
-//           </label>
-//         </div>
-//       </div>
-
-//       <MapContainer
-//         center={[12.912, 77.675]}
-//         zoom={13}
-//         style={{ height: "100vh", width: "100vw" }}
-//         ref={mapRef}
-//       >
-//         <TileLayer
-//           attribution='&copy; OpenStreetMap contributors'
-//           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-//         />
-        
-//         {/* Noise Map Overlay */}
-//         {showOverlay && (
-//           <NoiseMapOverlay
-//             map={mapRef.current}
-//             interpolatedData={interpolatedData}
-//             opacity={overlayOpacity}
-//           />
-//         )}
-        
-//         {/* Sensor Points */}
-//         {sensorData.map((data, idx) => (
-//           <CircleMarker
-//             key={data.device_id || idx}
-//             center={[data.lat, data.lon]}
-//             radius={8}
-//             fillOpacity={0.8}
-//             color={getMarkerColor(data.db)}
-//             weight={2}
-//           >
-//             <Tooltip>
-//               <div>
-//                 <strong>Sensor:</strong> {data.device_id} <br />
-//                 <strong>Noise:</strong> {data.db} dB(A) <br />
-//                 <strong>Height:</strong> {data.height || 'N/A'} m <br />
-//                 <strong>Time:</strong> {new Date(data.timestamp).toLocaleString()}
-//               </div>
-//             </Tooltip>
-//           </CircleMarker>
-//         ))}
-//       </MapContainer>
-//     </div>
-//   );
-// };
-
-// export default NoiseMap;
+export default MemoizedNoiseMap;

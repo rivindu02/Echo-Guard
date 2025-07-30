@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import NoiseMap from './components/NoiseMap';
-import webSocketMQTTService from './mqtt/webSocketMqttService';
+import webSocketService from './mqtt/simpleWebSocketService';
 import logoImage from './components/Smart Noise Monitoring System.png';
 import './App.css';
 
@@ -8,7 +8,6 @@ function App() {
   const [sensorData, setSensorData] = useState([]);
   const [connectionStatus, setConnectionStatus] = useState('disconnected');
   const [settingsOpen, setSettingsOpen] = useState(false);
-  const [notificationCount, setNotificationCount] = useState(0);
   const [settings, setSettings] = useState({
     showNotifications: true,
     autoRefresh: true,
@@ -40,61 +39,68 @@ function App() {
     }, 5000);
   }, []);
 
-  // MQTT message handler
-  const handleMessage = useCallback((payload, messageType) => {
+  // WebSocket message handler
+  const handleMessage = useCallback((data, messageType) => {
     try {
-      // Handle different message types from WebSocket service
-      if (messageType === 'sensor') {
-        // Validate payload structure
-        if (!payload.device_id || payload.db === undefined || !payload.lat || !payload.lon) {
-          console.warn('Invalid sensor payload:', payload);
-          return;
-        }
-
-        const newReading = {
-          ...payload,
-          timestamp: payload.timestamp || Date.now(),
-          db: parseFloat(payload.db),
-          lat: parseFloat(payload.lat),
-          lon: parseFloat(payload.lon),
-        };
-
-        // Update sensor data
-        setSensorData(prevData => {
-          const existingIndex = prevData.findIndex(sensor => sensor.device_id === newReading.device_id);
-          let newData;
+      console.log('📨 Handling message:', data, 'Type:', messageType);
+      
+      // Handle different message types
+      if (data.type === 'welcome') {
+        console.log('✅ Welcome message received');
+        return;
+      }
+      
+      if (data.type === 'echo') {
+        console.log('🔄 Echo received');
+        return;
+      }
+      
+      // Handle MQTT sensor data
+      if (data.topic && data.payload) {
+        const payload = data.payload;
+        
+        // Validate payload structure for sensor data
+        if (payload.device_id && payload.db !== undefined && payload.lat && payload.lon) {
+          console.log('📊 Processing sensor data:', payload);
           
-          if (existingIndex >= 0) {
-            // Update existing sensor
-            newData = [...prevData];
-            newData[existingIndex] = { ...newData[existingIndex], ...newReading };
-          } else {
-            // Add new sensor
-            newData = [...prevData, newReading];
-            if (settings.showNotifications) {
-              showNotification(`New sensor connected: ${newReading.device_id}`, 'info');
+          const newReading = {
+            ...payload,
+            timestamp: payload.timestamp || Date.now(),
+            db: parseFloat(payload.db),
+            lat: parseFloat(payload.lat),
+            lon: parseFloat(payload.lon),
+            key: `${payload.device_id}_${Date.now()}`, // Add unique key
+          };
+
+          // Update sensor data
+          setSensorData(prevData => {
+            const existingIndex = prevData.findIndex(sensor => sensor.device_id === newReading.device_id);
+            let newData;
+            
+            if (existingIndex >= 0) {
+              // Update existing sensor
+              newData = [...prevData];
+              newData[existingIndex] = { ...newData[existingIndex], ...newReading };
+            } else {
+              // Add new sensor
+              newData = [...prevData, newReading];
+              if (settings.showNotifications) {
+                showNotification(`New sensor connected: ${newReading.device_id}`, 'info');
+              }
             }
-          }
 
-          // Update statistics
-          updateStats(newData);
-          
-          return newData;
-        });
+            // Update statistics
+            updateStats(newData);
+            
+            return newData;
+          });
 
-        // Check for noise level alerts
-        if (newReading.db > 85 && settings.showNotifications) {
-          showNotification(`High noise level detected: ${newReading.db} dB at ${newReading.device_id}`, 'warning');
-          setNotificationCount(prev => prev + 1);
+
         }
-      } else if (messageType === 'interpolated') {
-        // Handle interpolated data (noise map overlay)
-        console.log('📈 Received interpolated data:', payload);
-        // This will be handled by the NoiseMap component
       }
 
     } catch (error) {
-      console.error('Error handling WebSocket message:', error);
+      console.error('Error handling message:', error);
       showNotification('Error processing sensor data', 'error');
     }
   }, [settings.showNotifications, showNotification]);
@@ -129,20 +135,22 @@ function App() {
     const initConnection = async () => {
       try {
         setConnectionStatus('connecting');
-        showNotification('Connecting to WebSocket server...', 'info');
+        showNotification('Connecting to server...', 'info');
         
-        await webSocketMQTTService.connect(handleMessage, (status) => {
+        await webSocketService.connect(handleMessage, (status) => {
           setConnectionStatus(status);
           if (status === 'connected') {
-            showNotification('Connected to WebSocket server!', 'success');
+            showNotification('Connected to server!', 'success');
           } else if (status === 'error') {
-            showNotification('Failed to connect to WebSocket server', 'error');
+            showNotification('Connection failed - Check if the server is running', 'error');
+          } else if (status === 'disconnected') {
+            showNotification('Disconnected from server - Attempting to reconnect...', 'warning');
           }
         });
       } catch (error) {
         console.error('Connection error:', error);
         setConnectionStatus('error');
-        showNotification('Connection failed: ' + error.message, 'error');
+        showNotification('Cannot connect to server. Make sure start_noise_system.py is running on the Pi', 'error');
       }
     };
 
@@ -150,7 +158,7 @@ function App() {
 
     // Cleanup on unmount
     return () => {
-      webSocketMQTTService.disconnect();
+      webSocketService.disconnect();
     };
   }, [handleMessage, showNotification]);
 
@@ -159,7 +167,7 @@ function App() {
     if (!settings.autoRefresh) return;
 
     const interval = setInterval(() => {
-      const status = webSocketMQTTService.getStatus();
+      const status = webSocketService.getStatus();
       setConnectionStatus(status);
     }, 5000);
 
@@ -208,15 +216,6 @@ function App() {
 
           {/* Action Buttons */}
           <div className="action-buttons">
-            <button 
-              className="action-btn notification-btn"
-              onClick={() => setNotificationCount(0)}
-              title="Notifications"
-            >
-              <span className="btn-icon">🔔</span>
-              {notificationCount > 0 && <span className="notification-dot">{notificationCount}</span>}
-            </button>
-
             <button 
               className="action-btn settings-btn"
               onClick={() => setSettingsOpen(!settingsOpen)}

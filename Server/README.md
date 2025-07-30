@@ -1,16 +1,53 @@
 # Python-based Noise Mapping System
 
-This directory contains the Python replacement for the Node.js MQTT broker functionality. The Raspberry Pi now acts as the central hub that receives data from ESP32 sensors and serves it to the React UI.
+This directory contains the server-side components for the Noise Mapping System. The system supports both local development and Raspberry Pi deployment modes.
+
+## Deployment Modes
+
+### 🖥️ Local Development Mode
+- **Use:** `local_dev_server.py`
+- **Features:** Built-in virtual ESP32 simulation, no external MQTT broker needed
+- **Best for:** Development, testing, demonstrations
+
+### 🍓 Raspberry Pi Server Mode  
+- **Use:** `fixed_websocket_server.py`
+- **Features:** Connects to Pi MQTT broker, handles real sensors
+- **Best for:** Production deployment, real sensor networks
 
 ## System Architecture
 
+### Local Development
 ```
-ESP32 Sensors → Raspberry Pi (Python) → React UI
-      ↓              ↓              ↓
-   MQTT Pub    MQTT Broker    WebSocket
-               Data Processing
-               Interpolation
+Virtual ESP32 (built-in) → local_dev_server.py → React UI
+                              ↓
+                        WebSocket Server
 ```
+
+### Pi Deployment
+```
+ESP32 Sensors → MQTT Broker (Pi) → fixed_websocket_server.py → React UI
+      ↓              ↓                        ↓
+   MQTT Pub    Mosquitto Broker         WebSocket Server
+```
+
+## Quick Start
+
+### For Local Development:
+```bash
+cd Server
+python local_dev_server.py
+```
+
+### For Pi Deployment:
+```bash
+# On Raspberry Pi:
+cd Server
+python3 fixed_websocket_server.py
+```
+
+### Configuration:
+- Edit `../config.ini` to set Pi IP address
+- Ensure ports 1883 (MQTT) and 9001 (WebSocket) are accessible
 
 ## Components
 
