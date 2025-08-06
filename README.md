@@ -3,7 +3,7 @@
 A real-time noise monitoring system using ESP32 sensors, Raspberry Pi server, and React web interface.
 
 ## 👨‍🏫 Canva Presentation 
--https://www.canva.com/design/DAGuD6Hi64o/7vyQ3UGEkZTetDRogWDefw/view?utm_content=DAGuD6Hi64o&utm_campaign=designshare&utm_medium=link2&utm_source=uniquelinks&utlId=h5cc147a049
+Link-https://www.canva.com/design/DAGuD6Hi64o/7vyQ3UGEkZTetDRogWDefw/view?utm_content=DAGuD6Hi64o&utm_campaign=designshare&utm_medium=link2&utm_source=uniquelinks&utlId=h5cc147a049
 
 ## 📋 System Overview
 
