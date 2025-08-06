@@ -2,8 +2,13 @@
 
 A real-time noise monitoring system using ESP32 sensors, Raspberry Pi server, and React web interface.
 
-## 👨‍🏫 Canva Presentation 
-Link-https://www.canva.com/design/DAGuD6Hi64o/7vyQ3UGEkZTetDRogWDefw/view?utm_content=DAGuD6Hi64o&utm_campaign=designshare&utm_medium=link2&utm_source=uniquelinks&utlId=h5cc147a049
+## 🖼️ Project Design
+
+Get a closer look at our design and workflow on Canva:  
+[Echo-Guard Canva Design](https://www.canva.com/design/DAGuD6Hi64o/7vyQ3UGEkZTetDRogWDefw/view?utm_content=DAGuD6Hi64o&utm_campaign=designshare&utm_medium=link2&utm_source=uniquelinks&utlId=h5cc147a049)
+
+---
+
 
 ## 📋 System Overview
 
