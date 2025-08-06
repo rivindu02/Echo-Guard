@@ -121,6 +121,21 @@ python3 fake_esp32.py --broker <PI_IP>
 
 This project is licensed under the MIT License - see the LICENSE file for details.
 
+## Our Team and product
+
+<table>
+  <tr>
+    <td align="center">
+      <img src="product.jpg" alt="Product" width="200"/><br/>
+      <strong>Product</strong>
+    </td>
+    <td align="center">
+      <img src="team.jpg" alt="Team" width="200"/><br/>
+      <strong>Team</strong>
+    </td>
+  </tr>
+</table>
+
 ## 🤝 Contributing
 
 1. Fork the project
