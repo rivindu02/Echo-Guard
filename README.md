@@ -126,11 +126,11 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 <table>
   <tr>
     <td align="center">
-      <img src="product.jpg" alt="Product" width="200"/><br/>
+      <img src="product.jpg" alt="Product"/><br/>
       <strong>Product</strong>
     </td>
     <td align="center">
-      <img src="team.jpg" alt="Team" width="200"/><br/>
+      <img src="team.jpg" alt="Team"/><br/>
       <strong>Team</strong>
     </td>
   </tr>
