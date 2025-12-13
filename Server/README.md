@@ -1,103 +1,100 @@
-# Python-based Noise Mapping System
+# Noise Mapping System - Server Components
 
-This directory contains the server-side components for the Noise Mapping System. The system supports both local development and Raspberry Pi deployment modes.
+This directory contains the server-side WebSocket server for the Noise Mapping System. The server connects to an MQTT broker and relays real-time noise sensor data to the React UI via WebSocket.
 
-## Deployment Modes
+## Architecture
 
-### 🖥️ Local Development Mode
-- **Use:** `local_dev_server.py`
-- **Features:** Built-in virtual ESP32 simulation, no external MQTT broker needed
-- **Best for:** Development, testing, demonstrations
-
-### 🍓 Raspberry Pi Server Mode  
-- **Use:** `fixed_websocket_server.py`
-- **Features:** Connects to Pi MQTT broker, handles real sensors
-- **Best for:** Production deployment, real sensor networks
-
-## System Architecture
-
-### Local Development
 ```
-Virtual ESP32 (built-in) → local_dev_server.py → React UI
-                              ↓
-                        WebSocket Server
+ESP32 Sensors → MQTT Broker → fixed_websocket_server.py → React UI
+      ↓            ↓                    ↓
+   MQTT Pub   Mosquitto Broker    WebSocket Server
 ```
 
-### Pi Deployment
-```
-ESP32 Sensors → MQTT Broker (Pi) → fixed_websocket_server.py → React UI
-      ↓              ↓                        ↓
-   MQTT Pub    Mosquitto Broker         WebSocket Server
-```
+## Core Server
 
-## Quick Start
+### `fixed_websocket_server.py` (Main Server)
+The production WebSocket server that:
+- Connects to a Mosquitto MQTT broker running on a Raspberry Pi or remote server
+- Subscribes to `noise/#` MQTT topics
+- Forwards real-time noise data to connected WebSocket clients
+- Handles client connections and disconnections gracefully
+- Includes message queuing for reliable delivery
 
-### For Local Development:
+**Features:**
+- Async WebSocket handling with `websockets` library
+- Thread-safe message queuing between MQTT and WebSocket layers
+- Ping/pong keepalive mechanism (20s interval)
+- Comprehensive logging with emoji indicators
+
+## Configuration
+
+Edit `../config.ini` to set:
+- **MQTT Broker IP:** Pi IP address running Mosquitto
+- **MQTT Port:** Typically 1883 (default)
+- **WebSocket Port:** Typically 9001 (default)
+
+## Installation
+
+### Prerequisites
+- Python 3.8+
+- Mosquitto MQTT broker running on Pi or remote server
+
+### Setup
 ```bash
 cd Server
-python local_dev_server.py
+pip install -r requirements.txt
 ```
 
-### For Pi Deployment:
+## Running the Server
+
+### On Raspberry Pi (Production)
 ```bash
-# On Raspberry Pi:
-cd Server
 python3 fixed_websocket_server.py
 ```
 
-### Configuration:
-- Edit `../config.ini` to set Pi IP address
-- Ensure ports 1883 (MQTT) and 9001 (WebSocket) are accessible
-
-## Components
-
-### 1. `mqtt_broker_server.py`
-- **Main WebSocket server** that replaces `mqtt-broker.js`
-- Connects to local MQTT broker (Mosquitto)
-- Provides WebSocket interface for React UI
-- Forwards MQTT messages to WebSocket clients
-- Handles real-time data relay
-
-### 2. `simple_noise_processor.py`
-- **Data processing service** for noise interpolation
-- Creates interpolated noise maps using IDW (Inverse Distance Weighting)
-- Processes sensor data and publishes results
-- Optimized for real-time performance
-
-### 3. `start_noise_system.py`
-- **System orchestrator** that starts all components
-- Manages Mosquitto broker
-- Monitors and restarts services if needed
-- Provides unified logging
-
-### 4. `config.py`
-- **Configuration management**
-- Environment variable support
-- Easy customization of system parameters
-
-## Quick Start
-
-### For Raspberry Pi (Recommended)
-
-**🚀 One-command installation:**
-```bash
-cd Server
-chmod +x cleanup_and_install.sh
-./cleanup_and_install.sh
+### Expected Output
+```
+📋 Pi configuration loaded:
+   MQTT broker: 192.168.x.x:1883
+   WebSocket server: 0.0.0.0:9001
+🦟 Pi MQTT client started
+🚀 Starting Pi WebSocket server on port 9001...
+✅ Pi WebSocket server running!
 ```
 
-This script will:
-- Fix any broken package installations
-- Install all system dependencies
-- Create a clean Python virtual environment
-- Install only the required packages (no scipy issues)
-- Configure Mosquitto MQTT broker
-- Verify everything works
+## Dependencies
 
-### For Other Platforms
+### `requirements.txt`
+- **paho-mqtt** (1.6.1): MQTT client for sensor data subscription
+- **websockets** (11.0.0+): Async WebSocket server
+- **numpy** (1.21.0+): Data processing support
 
-1. **Install Python dependencies:**
-```bash
+## Supporting Files
+
+### `config_loader.py`
+Configuration management utility that reads from `../config.ini`:
+- Parses Pi IP address and port settings
+- Validates configuration values
+- Provides clean API for server initialization
+
+### `local_dev_server.py`
+Development server with virtual ESP32 device simulation for testing without physical sensors or MQTT broker.
+
+## Troubleshooting
+
+### Cannot connect to MQTT broker
+- Verify Mosquitto is running on the Pi: `systemctl status mosquitto`
+- Check IP address and port in `../config.ini`
+- Test connection: `mosquitto_sub -h <pi-ip> -t "noise/#"`
+
+### WebSocket clients not receiving data
+- Ensure sensors are publishing to `noise/#` topics
+- Check MQTT connection logs for subscribe confirmation
+- Verify WebSocket clients are properly connected
+
+### Port already in use
+- Change WebSocket port in `../config.ini`
+- Or kill existing process: `lsof -i :9001`
 cd Server
 pip install -r requirements.txt
 ```
