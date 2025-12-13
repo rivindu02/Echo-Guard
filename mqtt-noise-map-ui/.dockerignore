@@ -1,0 +1,12 @@
+# Docker .gitignore
+node_modules/
+build/
+dist/
+.DS_Store
+*.log
+*.swp
+*.swo
+*~
+.env
+.env.local
+.env.*.local

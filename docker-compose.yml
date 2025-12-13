@@ -1,0 +1,21 @@
+version: '3.8'
+
+services:
+  # React UI Service
+  noise-map-ui:
+    build:
+      context: ./mqtt-noise-map-ui
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
+    environment:
+      - REACT_APP_WEBSOCKET_URL=ws://${PI_IP}:9001
+      - NODE_ENV=production
+    container_name: echo-guard-ui
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:3000"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s

@@ -179,7 +179,7 @@ async def main():
     asyncio.create_task(simulate_devices())
     
     # Start WebSocket server
-    logger.info(f"🌐 Starting WebSocket server on port {websocket_port}...")
+    logger.info(f"🌐 Sso tarting WebSocket server on port {websocket_port}...")
     
     async with websockets.serve(handle_client, "0.0.0.0", websocket_port,
                                ping_interval=20, ping_timeout=10):

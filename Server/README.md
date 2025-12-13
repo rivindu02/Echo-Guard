@@ -1,53 +1,65 @@
 # Noise Mapping System - Server Components
 
-This directory contains the server-side WebSocket server for the Noise Mapping System. The server connects to an MQTT broker and relays real-time noise sensor data to the React UI via WebSocket.
+This directory contains the server-side WebSocket server for the Noise Mapping System.
 
 ## Architecture
 
 ```
-ESP32 Sensors → MQTT Broker → fixed_websocket_server.py → React UI
-      ↓            ↓                    ↓
-   MQTT Pub   Mosquitto Broker    WebSocket Server
+ESP32 Sensors → MQTT Broker (Pi) → fixed_websocket_server.py → React UI
+                  Mosquitto         WebSocket Server (9001)
 ```
 
 ## Core Server
 
-### `fixed_websocket_server.py` (Main Server)
-The production WebSocket server that:
-- Connects to a Mosquitto MQTT broker running on a Raspberry Pi or remote server
+### `fixed_websocket_server.py` (Main)
+Production WebSocket server that:
+- Connects to Mosquitto MQTT broker on Raspberry Pi
 - Subscribes to `noise/#` MQTT topics
-- Forwards real-time noise data to connected WebSocket clients
-- Handles client connections and disconnections gracefully
-- Includes message queuing for reliable delivery
+- Forwards real-time sensor data to React UI clients
+- Handles connections/disconnections gracefully
 
 **Features:**
-- Async WebSocket handling with `websockets` library
-- Thread-safe message queuing between MQTT and WebSocket layers
-- Ping/pong keepalive mechanism (20s interval)
-- Comprehensive logging with emoji indicators
+- Async WebSocket with `websockets` library
+- Thread-safe message queuing (MQTT → WebSocket)
+- Ping/pong keepalive (20s)
+- Real-time logging
 
-## Configuration
+## Prerequisites
 
-Edit `../config.ini` to set:
-- **MQTT Broker IP:** Pi IP address running Mosquitto
-- **MQTT Port:** Typically 1883 (default)
-- **WebSocket Port:** Typically 9001 (default)
+### On Raspberry Pi
+```bash
+# Install Mosquitto
+sudo apt update
+sudo apt install -y mosquitto mosquitto-clients
+
+# Enable and start
+sudo systemctl enable mosquitto
+sudo systemctl start mosquitto
+
+# Verify it's running
+sudo systemctl status mosquitto
+netstat -an | grep 1883
+```
+
+### Configuration
+Edit `../config.ini`:
+```ini
+[pi]
+pi_ip = 192.168.208.242     # Your Pi's IP
+mqtt_port = 1883             # MQTT port
+websocket_port = 9001        # WebSocket port
+```
 
 ## Installation
 
-### Prerequisites
-- Python 3.8+
-- Mosquitto MQTT broker running on Pi or remote server
-
-### Setup
 ```bash
 cd Server
 pip install -r requirements.txt
 ```
 
-## Running the Server
+## Running
 
-### On Raspberry Pi (Production)
+### Start on Pi
 ```bash
 python3 fixed_websocket_server.py
 ```
@@ -55,264 +67,89 @@ python3 fixed_websocket_server.py
 ### Expected Output
 ```
 📋 Pi configuration loaded:
-   MQTT broker: 192.168.x.x:1883
+   MQTT broker: 192.168.208.242:1883
    WebSocket server: 0.0.0.0:9001
 🦟 Pi MQTT client started
-🚀 Starting Pi WebSocket server on port 9001...
 ✅ Pi WebSocket server running!
+```
+
+### Start React UI Connection
+```bash
+# React should connect to:
+ws://192.168.208.242:9001
 ```
 
 ## Dependencies
 
-### `requirements.txt`
-- **paho-mqtt** (1.6.1): MQTT client for sensor data subscription
-- **websockets** (11.0.0+): Async WebSocket server
-- **numpy** (1.21.0+): Data processing support
+- **paho-mqtt** - MQTT client library
+- **websockets** - Async WebSocket server
 
 ## Supporting Files
 
-### `config_loader.py`
-Configuration management utility that reads from `../config.ini`:
-- Parses Pi IP address and port settings
-- Validates configuration values
-- Provides clean API for server initialization
-
-### `local_dev_server.py`
-Development server with virtual ESP32 device simulation for testing without physical sensors or MQTT broker.
+- `config_loader.py` - Configuration management
+- `local_dev_server.py` - Virtual sensor simulator (dev only)
 
 ## Troubleshooting
 
-### Cannot connect to MQTT broker
-- Verify Mosquitto is running on the Pi: `systemctl status mosquitto`
-- Check IP address and port in `../config.ini`
-- Test connection: `mosquitto_sub -h <pi-ip> -t "noise/#"`
-
-### WebSocket clients not receiving data
-- Ensure sensors are publishing to `noise/#` topics
-- Check MQTT connection logs for subscribe confirmation
-- Verify WebSocket clients are properly connected
-
-### Port already in use
-- Change WebSocket port in `../config.ini`
-- Or kill existing process: `lsof -i :9001`
-cd Server
-pip install -r requirements.txt
-```
-
-2. **Install Mosquitto MQTT broker:**
+### MQTT Connection Failed (rc=-2)
 ```bash
-# Ubuntu/Debian/Raspberry Pi OS
-sudo apt update
-sudo apt install mosquitto mosquitto-clients
+# On Pi, verify Mosquitto is running
+sudo systemctl status mosquitto
 
-# Windows (using Chocolatey)
-choco install mosquitto
+# If not running, start it
+sudo systemctl start mosquitto
 
-# macOS (using Homebrew)
-brew install mosquitto
+# Allow firewall
+sudo ufw allow 1883/tcp
 ```
 
-### Starting the System
-
-**Option 1: Use the startup script (Recommended)**
+### Test MQTT Connection
 ```bash
-cd Server
-python start_noise_system.py
+# From Pi
+mosquitto_sub -h localhost -t "noise/#" -v
+
+# From ESP32 network
+mosquitto_pub -h 192.168.208.242 -t "test" -m "hello"
 ```
 
-**Option 2: Use PowerShell script (Windows)**
-```powershell
-cd Server
-.\start-python-system.ps1
-```
+### WebSocket Clients Not Receiving Data
+1. Verify sensors publishing: `mosquitto_sub -h localhost -t "noise/#"`
+2. Check server logs for errors
+3. Verify React UI WebSocket URL uses correct Pi IP
 
-**Option 3: Manual start (for debugging)**
+### Port Already in Use
 ```bash
-# Terminal 1: Start Mosquitto
-mosquitto -c mosquitto.conf -v
-
-# Terminal 2: Start WebSocket server
-python mqtt_broker_server.py
-
-# Terminal 3: Start data processor
-python simple_noise_processor.py
-
-# Terminal 4: Start fake sensors (testing)
-python ../fake_esp32.py
+# Change port in config.ini or
+lsof -i :9001  # Find process
+kill -9 <PID>  # Kill it
 ```
-
-## System Endpoints
-
-- **MQTT Broker (TCP):** `localhost:1883`
-- **WebSocket Server:** `ws://localhost:9001`
-- **React UI Connection:** Use `ws://localhost:9001`
-
-## Configuration
-
-### Environment Variables
-
-You can customize the system using environment variables:
-
-```bash
-# MQTT Settings
-export MQTT_BROKER_HOST=localhost
-export MQTT_BROKER_PORT=1883
-
-# WebSocket Settings
-export WEBSOCKET_HOST=localhost
-export WEBSOCKET_PORT=9001
-
-# Processing Settings
-export UPDATE_INTERVAL=2
-export MAX_SENSOR_AGE=300
-
-# System Settings
-export ENABLE_FAKE_SENSORS=true
-export AUTO_RESTART=true
-```
-
-### React UI Configuration
-
-Update your React app to use the WebSocket server:
-
-1. The system automatically provides `webSocketMqttService.js`
-2. App.js is updated to use WebSocket instead of direct MQTT
-3. Connection URL: `ws://localhost:9001`
-
-## Features
-
-### ✅ Replaced Node.js Components
-- ✅ MQTT broker functionality (WebSocket proxy)
-- ✅ Real-time data forwarding
-- ✅ Connection management
-- ✅ Error handling and reconnection
-
-### ✅ Enhanced Python Features
-- ✅ **Improved interpolation** - Higher resolution noise maps
-- ✅ **Better performance** - Optimized data processing
-- ✅ **System monitoring** - Auto-restart failed services
-- ✅ **Unified logging** - Centralized log management
-- ✅ **Configuration management** - Environment variables
-- ✅ **Cross-platform** - Works on Pi, Windows, macOS
-
-### ✅ System Benefits
-- ✅ **Single language** - Pure Python ecosystem
-- ✅ **Better resource usage** - Lower memory footprint
-- ✅ **Easier deployment** - Fewer dependencies
-- ✅ **Simplified maintenance** - One technology stack
 
 ## Data Flow
 
-1. **ESP32 sensors** publish data to MQTT topics (`noise/esp32/+`)
-2. **mqtt_broker_server.py** receives MQTT data and forwards to WebSocket
-3. **simple_noise_processor.py** processes data for interpolation
-4. **React UI** connects via WebSocket and receives real-time updates
-5. **Noise maps** are generated and displayed in real-time
+1. **ESP32** publishes JSON to `noise/esp32-{id}`
+2. **Mosquitto** receives on Pi (1883)
+3. **fixed_websocket_server.py** subscribes and queues messages
+4. **WebSocket** (9001) sends to React UI
+5. **React** displays real-time noise map
 
-## MQTT Topics
+## MQTT Message Format
 
-- **Sensor Data:** `noise/esp32/{device_id}`
-- **Processing Requests:** `noise/process_request`
-- **Processed Data:** `noise/processed`
-
-## Monitoring and Logs
-
-All components log to both console and files:
-- `mqtt_broker_server.py` → `mqtt_broker.log`
-- `simple_noise_processor.py` → `noise_processor.log`
-- `start_noise_system.py` → `system_startup.log`
-
-## Troubleshooting
-
-### Connection Issues
-1. **Check Mosquitto status:**
-```bash
-sudo systemctl status mosquitto
-# or
-mosquitto_sub -h localhost -t test/topic
-```
-
-2. **Verify WebSocket server:**
-```bash
-# Check if port 9001 is open
-netstat -an | grep 9001
-```
-
-3. **Test with fake sensors:**
-```bash
-python ../fake_esp32.py
-```
-
-### Performance Issues
-1. **Reduce update interval** in `config.py`
-2. **Lower grid resolution** for interpolation
-3. **Increase sensor age limit** to reduce processing
-
-### React UI Issues
-1. **Update WebSocket URL** in environment variables
-2. **Check browser console** for connection errors
-3. **Verify CORS settings** if needed
-
-## Migration from Node.js
-
-The Python system is designed as a **drop-in replacement** for the Node.js broker:
-
-### What Changed:
-- ✅ **Backend:** Node.js → Python
-- ✅ **Protocol:** Direct MQTT → WebSocket proxy
-- ✅ **Management:** Manual → Automated startup
-
-### What Stayed the Same:
-- ✅ **React UI:** Same interface and features
-- ✅ **ESP32 code:** No changes needed
-- ✅ **MQTT topics:** Same topic structure
-- ✅ **Data format:** Compatible JSON payloads
-
-## Development
-
-### Adding New Features
-
-1. **Extend WebSocket service:**
-```python
-# Add to mqtt_broker_server.py
-async def handle_custom_message(self, data):
-    # Your custom logic here
-    pass
-```
-
-2. **Modify data processing:**
-```python
-# Add to simple_noise_processor.py
-def custom_interpolation(self, sensors):
-    # Your custom interpolation logic
-    pass
-```
-
-3. **Update React UI:**
-```javascript
-// Extend webSocketMqttService.js
-handleCustomMessage(data) {
-    // Your custom frontend logic
+```json
+{
+  "device_id": "esp32-001",
+  "location_name": "Entc",
+  "lat": 6.796436,
+  "lon": 79.901152,
+  "db": 65.5,
+  "timestamp": 1702483920000
 }
 ```
 
-## System Requirements
+## Quick Start Checklist
 
-- **Python 3.8+**
-- **Mosquitto MQTT broker**
-- **Raspberry Pi 3B+ or better** (recommended)
-- **2GB RAM minimum**
-- **Network connectivity** for ESP32 sensors
-
-## Performance Benchmarks
-
-On Raspberry Pi 4:
-- **Sensor throughput:** 50+ sensors at 1Hz
-- **WebSocket clients:** 10+ concurrent connections
-- **Interpolation:** 60x60 grid in <200ms
-- **Memory usage:** ~100MB total system
-- **CPU usage:** <15% average load
-
----
-
-This Python-based system provides a more robust, maintainable, and feature-rich replacement for the original Node.js implementation while maintaining full compatibility with existing ESP32 sensors and React UI components.
+- [ ] Mosquitto running on Pi: `sudo systemctl start mosquitto`
+- [ ] Firewall allows 1883: `sudo ufw allow 1883/tcp`
+- [ ] config.ini has correct Pi IP
+- [ ] WebSocket server started: `python3 fixed_websocket_server.py`
+- [ ] ESP32 can reach Pi IP (same WiFi)
+- [ ] React UI connects to `ws://Pi-IP:9001`
